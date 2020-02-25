@@ -79,7 +79,7 @@ class AUScorer:
         self.include_eyebrows = include_eyebrows
         original_dir = os.getcwd()
         os.chdir(dir)
-        au_file = 'au.txt'  # Replace with name of action units file
+        au_file = 'au.csv'  # Replace with name of action units file
 
         if not os.path.exists(au_file):
             os.chdir(original_dir)

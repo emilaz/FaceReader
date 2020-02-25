@@ -12,18 +12,17 @@ import os
 import gc
 import glob
 import pickle
-import pandas as pd
+import numpy as np
 import functools
 from tqdm import tqdm
 import sys
 
 import dask
 import dask.dataframe as dd
-from dask_ml.xgboost import XGBClassifier
 from dask_ml.model_selection import train_test_split
+from dask_ml.model_selection import GridSearchCV
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.externals import joblib
 from sklearn.model_selection import cross_validate
 
 from dask.distributed import Client, LocalCluster
@@ -34,33 +33,63 @@ from dask.diagnostics import ProgressBar
 sys.path.append(
     os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from OpenFaceScripts.scoring import AUScorer
 
 def use_dask_xgb(out_q, emotion, df: dd.DataFrame):
-    # data_columns = [x for x in df.columns if 'annotated' not in x and 'predicted' not in x and 'patient' not in x]
-    # data = df[data_columns]
-    # # data.convert_objects(convert_numeric=True).dropna()
-    # data = data.apply(lambda x: pd.to_numeric(x, errors='coerce'),axis=1, meta={'x': 'f8', 'y': 'f8'})
-    # data = data.fillna(0)
 
-    # labels = df[df['annotated'] != "N/A"]
-    # labels = labels['annotated']
-    # # labels = labels.assign(lambda x: 1 if x['annotated'] == emotion else 0)
-    # labels = labels.apply(lambda x: 1 if x == emotion else 0, meta={'x': 'f8', 'y': 'f8'})
-    # labels = labels.fillna(0)
-    # # labels = labels.compute()
+    data, labels = make_emotion_data('Happy',df)
 
-    # X_train, X_test, y_train, y_test = train_test_split(data.values, labels.values)
+    X_train, X_test, y_train, y_test = train_test_split(data, labels)
+    scoring = ['precision', 'recall', 'f1']
+    print("TRAINING")
 
-    # classifier = XGBClassifier()
-    # scoring = ['precision', 'recall']
-    # scores = cross_val_score(
-        # classifier, X_train, y_train, scoring=scoring)
-    # out_q.put("Cross val precision for classifier {0}:\n{1}\n".format(
-        # classifier, scores['precision'].mean()))
-    # out_q.put("Cross val recall for classifier {0}:\n{1}\n".format(
-        # classifier, scores['recall'].mean()))
+    #classifier = RandomForestClassifier(n_estimators=100)
 
+    classifier_test = make_random_forest(X_train,y_train, scoring)
+    # best_params = classifier_test.best_params_
+    results = classifier_test.cv_results_
+    best_idx = classifier_test.best_index_
+
+    classifier = classifier_test.best_estimator_
+
+    # classifier = RandomForestClassifier(n_estimators=best_params['n_estimators'], max_features=best_params['max_features'], max_depth=best_params['max_depth'])
+
+    # with parallel_backend('dask'):
+    #     scores = cross_validate(
+    #         classifier, X_train, y_train, scoring=scoring, cv=5, return_train_score=True)
+    out_q.put("Best Hyperparas: {}  \n".format(classifier_test.best_params_))
+    out_q.put("During CV: Mean PR {}, REC {}, F1 {} (these are on the test-fold)\n".format(
+        results['mean_test_precision'][best_idx],results['mean_test_recall'][best_idx],results['mean_test_f1'][best_idx]))
+
+    # expected = y_test.values
+    # predicted = classifier.predict(X_test.values)
+    print("PREDICTING")
+    expected= y_test
+    with parallel_backend('dask'):
+        # classifier.fit(X_train, y_train)
+        predicted = classifier.predict(X_test)
+
+        out_q.put("Results on separate test set (not seen during training):\n%s\n" %
+                (metrics.classification_report(expected, predicted)))
+        out_q.put("Confusion matrix:\n%s\n" % metrics.confusion_matrix(
+            expected, predicted))
+    pickle.dump(
+        classifier,
+        open('{0}_trained_RandomForest_with_pose_emil.pkl'.format(emotion), 'wb'))
+
+
+def make_random_forest(feats, labels, scoring) -> GridSearchCV:
+    param_grid = {
+        'n_estimators': [r for r in range(25,151,25)],
+        #'max_features': np.random.choice(np.arange(min(feats.shape))[1:],5),
+        'max_features':['auto','log2'],
+        # 'max_depth': np.random.choice(np.arange(60)[1:],5),
+    }
+
+    random_forest = GridSearchCV(RandomForestClassifier(), param_grid, scoring=scoring, n_jobs=multiprocessing.cpu_count(), cv=3, refit='f1')
+    random_forest.fit(feats, labels)
+    return random_forest
+
+def make_emotion_data(emotion, df):
     data_columns = [x for x in df.columns if 'predicted' not in x and 'patient' not in x and 'session' not in x and 'vid' not in x]
     df = df[data_columns]
     data = df[df['annotated'] != "N/A"]
@@ -69,6 +98,7 @@ def use_dask_xgb(out_q, emotion, df: dd.DataFrame):
     emote_data = data[data['annotated'] == emotion]
     non_emote_data = data[data['annotated'] != emotion]
 
+    #I think this is for balancing Emo/Non-Emo samples during training
     non_emote_data = non_emote_data.sample(frac=len(emote_data)/len(non_emote_data))
 
     data = dd.concat([emote_data, non_emote_data], interleave_partitions=True)
@@ -77,94 +107,41 @@ def use_dask_xgb(out_q, emotion, df: dd.DataFrame):
     # print(labels.unique().compute())
 
     del data['annotated']
-    print("PERSISTING DATA")
-    # data, labels = dask.persist(data, labels)
-    # data = client.compute(data)
-    # labels = client.compute(labels)
     data = data.compute()
     labels = labels.compute()
-    # df2 = dd.get_dummies(data.categorize()).persist()
-    # X_train, X_test, y_train, y_test = train_test_split(df2, labels)
-    X_train, X_test, y_train, y_test = train_test_split(data, labels)
-    # X_train, X_test = data.random_split([.9,.1])
-    # y_train, y_test = labels.random_split([.9,.1])
-
-    # cluster = LocalCluster(n_workers=16)
-    # cluster = LocalCluster()
-    # client = Client(cluster)
-    # client = Client('scheduler-address:8786', processes=False)
-    # classifier = XGBClassifier()
-    scoring = ['precision', 'recall']
-    print("TRAINING")
-    # classifier.fit(X_train, y_train)
-    classifier = RandomForestClassifier(n_estimators=100)
-
-    with parallel_backend('dask'):
-        # scores = cross_validate(
-            # classifier, X_train.values, y_train.values, scoring=scoring)
-        scores = cross_validate(
-            classifier, X_train, y_train, scoring=scoring, cv=5, return_train_score=True)
-    out_q.put("Scores for emotion {0} \n".format(emotion))
-    out_q.put("Cross val train precision for classifier {0}:\n{1}\n".format(
-        classifier, scores['train_precision'].mean()))
-    out_q.put("Cross val train recall for classifier {0}:\n{1}\n".format(
-        classifier, scores['train_recall'].mean()))
-    out_q.put("Cross val test precision for classifier {0}:\n{1}\n".format(
-        classifier, scores['test_precision'].mean()))
-    out_q.put("Cross val test recall for classifier {0}:\n{1}\n".format(
-        classifier, scores['test_recall'].mean()))
-
-    # expected = y_test.values
-    # predicted = classifier.predict(X_test.values)
-    print("PREDICTING")
-    expected= y_test
-    with parallel_backend('dask'):
-        classifier.fit(X_train, y_train)
-
-        predicted = classifier.predict(X_test)
-    # predicted = classifier.predict(X_test)
-
-        out_q.put("Classification report for classifier %s:\n%s\n" %
-                (classifier, metrics.classification_report(expected, predicted)))
-        out_q.put("Confusion matrix:\n%s\n" % metrics.confusion_matrix(
-            expected, predicted))
-    # classifier.save_model('{0}_trained_XGBoost_with_pose')
-    pickle.dump(
-        classifier,
-        open('{0}_trained_RandomForest_with_pose.pkl'.format(emotion), 'wb'))
+    return data, labels
 
 
-
-def make_emotion_data(emotion: str, dict_to_use: dd.DataFrame, ck=True):
-    """
-    Make emotion data for classifiers
-
-    :param emotion: Emotion to classify
-    :param dict_to_use: Location of stored DataFrame
-    :param ck: If ck dict exists
-    """
-    emotion_data = []
-    target_data = []
-
-    for row in tqdm(dict_to_use.iterrows(), total = len(dict_to_use.index)):
-        index, data = row
-        annotated_emote = data["annotated"]
-
-        if annotated_emote == "N/A":
-            continue
-        all_columns = data.keys()
-        columns_to_use = [x for x in all_columns if 'annotated' not in x and 'predicted' not in x and 'patient' not in x]
-        # data = data.loc[:, columns_to_use].compute()
-        data = data[columns_to_use]
-        # data = data.loc[:, df.columns != "annotated" and df.columns != "Happy_predicted"].compute()
-        emotion_data.append(data.tolist())
-
-        if annotated_emote == emotion:
-            target_data.append(1)
-        else:
-            target_data.append(0)
-
-    return emotion_data, target_data
+# def make_emotion_data(emotion: str, dict_to_use: dd.DataFrame, ck=True):
+#     """
+#     Make emotion data for classifiers
+#
+#     :param emotion: Emotion to classify
+#     :param dict_to_use: Location of stored DataFrame
+#     :param ck: If ck dict exists
+#     """
+#     emotion_data = []
+#     target_data = []
+#
+#     for row in tqdm(dict_to_use.iterrows(), total = len(dict_to_use.index)):
+#         index, data = row
+#         annotated_emote = data["annotated"]
+#
+#         if annotated_emote == "N/A":
+#             continue
+#         all_columns = data.keys()
+#         columns_to_use = [x for x in all_columns if 'annotated' not in x and 'predicted' not in x and 'patient' not in x]
+#         # data = data.loc[:, columns_to_use].compute()
+#         data = data[columns_to_use]
+#         # data = data.loc[:, df.columns != "annotated" and df.columns != "Happy_predicted"].compute()
+#         emotion_data.append(data.tolist())
+#
+#         if annotated_emote == emotion:
+#             target_data.append(1)
+#         else:
+#             target_data.append(0)
+#
+#     return emotion_data, target_data
 
 
     # if dict_to_use is None:
@@ -326,8 +303,8 @@ def use_classifier(out_q, emotion: str, classifier, dfs):
 
 def load_patient(out_q, patient_dir):
         try:
-            curr_df = dd.read_hdf(os.path.join(patient_dir, 'hdfs', 'au.hdf'), '/data')
-            curr_df = curr_df[curr_df[' success'] == 1]
+            curr_df = dd.read_hdf(os.path.join(patient_dir, 'hdfs', 'au_w_anno.hdf'), '/data')
+            curr_df = curr_df[curr_df['success'] == 1]
             # curr_df = curr_df.compute()
 
             if len(curr_df) and 'annotated' in curr_df.columns and 'frame' in curr_df.columns:
@@ -367,13 +344,13 @@ if __name__ == '__main__':
     # dask.config.set(pool=ThreadPool(4))
     # cluster = LocalCluster(silence_logs=0)
     parser = argparse.ArgumentParser()
-    parser.add_argument("OpenDir", help="Path to OpenFaceTests directory")
-    parser.add_argument("--refresh", help="Refresh DataFrame", action="store_true")
+    parser.add_argument("-id", help="Path to OpenFaceTests directory")
+    parser.add_argument("-refresh", help="Refresh DataFrame", action="store_true")
     args = parser.parse_args()
-    OpenDir = args.OpenDir
+    OpenDir = args.id
     os.chdir(OpenDir)
     au_path = os.path.join('all_aus', 'au_*.hdf')
-
+    #if refresh, all action units are being dumped into one big dask dataframe and saved
     if args.refresh:
 
         if not os.path.exists('all_aus'):
@@ -395,8 +372,6 @@ if __name__ == '__main__':
         del patient_queue
         gc.collect()
 
-        # print(dd.stack(dfs))
-        # df = df.compute()
         df.to_hdf(au_path, '/data', format='table', scheduler='processes') #need scheduler to avoid segfault
         print('DUMPED')
         client = Client(processes=False)
@@ -413,43 +388,19 @@ if __name__ == '__main__':
         print(client)
         df = dd.read_hdf(au_path, '/data')
 
-    # print("NUM_FRAMES IS" + str(len(df.index)))
-
-    # def make_random_forest(emotion) -> GridSearchCV:
-    #     param_grid = {
-    #         'n_estimators': np.arange(1, 20, 5),
-    #         'max_features': ['auto'] + list(np.linspace(.1, 1, 5)),
-    #         'max_depth': [None] + list(np.arange(1, 10, 5)),
-    #         'min_samples_split': np.linspace(.1, 1, 5),
-    #         'min_samples_leaf': np.linspace(.1, .5, 5),
-    #         'min_weight_fraction_leaf': np.linspace(0, .5, 5),
-    #         'max_leaf_nodes': [None] + list(np.arange(2, 100, 10)),
-    # 'min_impurity_split': np.linspace(0, 1, 5),  # Figure out what this does
-    #         'bootstrap': [True, False],
-    #     }
-    #     random_forest = GridSearchCV(RandomForestClassifier(), param_grid, scoring='f1', n_jobs=multiprocessing.cpu_count(), verbose=5)
-    #     au_data, target_data = make_emotion_data(emotion)
-    #     au_train, au_test, target_train, target_test = train_test_split(au_data, target_data, test_size=.1)
-    #     random_forest.fit(au_train, target_train)
-    #     return random_forest
-
-    out_file = open('classifier_performance.txt', 'w')
+    out_file = open(os.path.join('all_aus','classifier_performance.txt'), 'w')
     out_q = multiprocessing.Manager().Queue()
 
     index = 1
     # bar = progressbar.ProgressBar(redirect_stdout=True, max_value=1 *
     # len(AUScorer.emotion_list()))
 
-    for emotion in AUScorer.emotion_list():
-        # classifiers = [
-            # RandomForestClassifier(warm_start=True),
-        # ]
-
-        # for classifier in classifiers:
-            # use_classifier(out_q, emotion, classifier, dump_queue(patient_queue))
-            # # bar.update(index)
-            # index += 1
+    for emotion in ['Happy']:
         use_dask_xgb(out_q, emotion, df)
+
+    #print(dump_queue(out_q))
 
     while not out_q.empty():
         out_file.write(out_q.get())
+    out_file.close()
+    print('yes')

@@ -13,7 +13,7 @@ from scoring.AUScorer import AUScorer
 
 
 def crop_and_resize(vid, width, height, x_min, y_min, directory,
-                    resize_factor):
+                    resize_factor, to_img = True):
     """
     Crops a video and then resizes it
 
@@ -31,16 +31,37 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
     """
     crop_vid = os.path.join(directory, 'cropped_out.avi')
     subprocess.Popen(
-        'ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" {5}'
+        'ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 17 {5}'
         .format(vid, str(width), str(height), str(x_min), str(y_min),
                 crop_vid),
         shell=True).wait()
-    subprocess.Popen(
-        'ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih {1}'.format(
-            crop_vid, os.path.join(directory, 'inter_out.avi'),
-            str(resize_factor)),
-        shell=True).wait()
+    if not to_img:
+        subprocess.Popen(
+            'ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih  -c:a copy {1}'.format(
+                crop_vid, os.path.join(directory, 'inter_out.avi'),
+                str(resize_factor)),
+            shell=True).wait()
+    else:
+        img_path = os.path.join(directory, 'frames')
+        if not os.path.exists(img_path):
+            os.mkdir(img_path)
+        # subprocess.Popen(
+        #     'ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih -c:a copy -crf 18 {1}'.format(
+        #         crop_vid, os.path.join(directory, 'inter_out.avi'),
+        #         str(resize_factor)),
+        #     shell=True).wait()
+        # subprocess.Popen(
+        #     'ffmpeg -y -loglevel quiet -i {0} {1}'.format(
+        #         os.path.join(directory, 'inter_out.avi'), os.path.join(img_path, '%04d.bmp')),
+        #     shell=True).wait()
+        subprocess.Popen(
+            'ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih -c:a copy -crf 17 {1}'.format(
+                crop_vid, os.path.join(img_path, '%04d.bmp'),
+                str(resize_factor)),
+            shell=True).wait()
+
     os.remove(os.path.join(directory, 'cropped_out.avi'))
+
 
 
 class DurationException(Exception):
@@ -127,6 +148,7 @@ class CropVid:
 
         if not all(bb_arr):
             bb_arr = [50, 0, 640 - 100, 480 - 100]
+            # bb_arr = [350, 100, 640 - 100, 380 - 100]
         x_min = bb_arr[0]
         y_min = bb_arr[1]
         x_max = bb_arr[2]
@@ -147,20 +169,20 @@ class CropVid:
 
     def crop_im_arr_arr_list(self):
         base_name = os.path.basename(self.vid)
-        self.crop_file_path = find_crop_path(base_name, self.crop_txt_files)
+        self.crop_file_path = find_crop_path(base_name, self.crop_txt_files) #these will be None if no crop/nose files exist so far for this video
         self.nose_file_path = find_crop_path(base_name, self.nose_txt_files)
         crop_read_arr = self.make_read_arr(open(
             self.crop_file_path)) if self.crop_file_path else None
         nose_read_arr = self.make_read_arr(open(
             self.nose_file_path)) if self.nose_file_path else None
 
-        if crop_read_arr and nose_read_arr:
+        if crop_read_arr and nose_read_arr: #in case crop and nose files don't exist yet, we don't go in here
             original_crop_coords = self.find_im_bb(crop_read_arr,
                                                    nose_read_arr)
 
             if not original_crop_coords:
                 original_crop_coords = [None, None, None, None, 1]
-        else:
+        else: #so crop coords will be this lel
             original_crop_coords = [None, None, None, None, 1]
 
         return original_crop_coords

@@ -15,7 +15,8 @@ def run():
 
 def crop_image(i):
     vid = vids[i]
-    im_dir = os.path.splitext(vid)[0] + '_cropped'
+    #im_dir = os.path.splitext(vid)[0] + '_cropped'
+    im_dir = os.path.join(output_path,os.path.splitext(vid)[0].split('/')[-1] + '_cropped')
     try_cropping(vid, im_dir)
 
 
@@ -33,12 +34,13 @@ def try_cropping(vid, im_dir):
 
 
 if __name__ == '__main__':
-    path = sys.argv[sys.argv.index('-id') + 1]
+    input_path = sys.argv[sys.argv.index('-id') + 1]
+    output_path = sys.argv[sys.argv.index('-od') + 1]
 
-    crop_txt_files, nose_txt_files = make_crop_and_nose_files(path)
+    crop_txt_files, nose_txt_files = make_crop_and_nose_files(output_path)
 
-    os.chdir(path)
-    vids = make_vids(path)
+    os.chdir(output_path)
+    vids = make_vids(input_path, output_path)
     vid_left = int(sys.argv[sys.argv.index('-vl') + 1])
     vid_right = int(sys.argv[sys.argv.index('-vr') + 1])
     run()

@@ -16,7 +16,7 @@ def pandasToDask(pdir):
             new_colnames = []
 
             for name in df.columns:
-                new_colnames.append(name.lstrip(''))
+                new_colnames.append(name.lstrip(' '))
             df.columns = new_colnames
             df.to_hdf(os.path.join(pdir, 'hdfs', 'au.hdf'), key='/data', format='table')
             os.remove(hdf_lock)

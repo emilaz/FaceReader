@@ -1,5 +1,10 @@
 from tqdm import tqdm
 from typing import List
+from dask import dataframe as df
+from dask import array as da
+import glob
+from pathos.multiprocessing import ProcessingPool as Pool
+import functools
 import sys
 import os
 sys.path.append(
@@ -7,20 +12,9 @@ sys.path.append(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from OpenFaceScripts.helpers.patient_info import patient_day_session, get_patient_names
 from OpenFaceScripts.runners import VidCropper
-from OpenFaceScripts.scoring import AUScorer
 from OpenFaceScripts import AUGui
 from OpenFaceScripts.helpers.SecondRunHelper import process_eyebrows, get_vid_from_dir
-from multiprocessing import cpu_count
-from pathos.multiprocessing import ProcessingPool as Pool
-from dask import dataframe as df
-from dask import array as da
-from os.path import join
-from collections import defaultdict
-import multiprocessing
-import json
-import glob
-import functools
-import numpy as np
+
 """
 .. module:: AUvsEmotionGenerator
     :synopsis: Appends classified emotion to AU dataframe
@@ -46,9 +40,6 @@ def find_scores(patient_dir: str, refresh: bool):
     """
     try:
         patient, day, session = patient_day_session(patient_dir)
-        # au_frame = df.read_hdf(
-        # os.path.join('all_' + patient, 'au_*.hdf'), '/data')
-        # try:
         try:
             au_frame = df.read_hdf(
                 os.path.join(patient_dir, 'hdfs', 'au.hdf'), '/data')
@@ -80,20 +71,23 @@ def find_scores(patient_dir: str, refresh: bool):
         # au_frame = au_frame[au_frame.vid == session]
 
         annotated_values = ["N/A" for _ in range(len(au_frame.index) + 1)]
-
-        csv_path = join(
-            patient_dir,
-            os.path.basename(patient_dir).replace('_cropped', '') +
-            '_emotions.csv')
+        # annotated_values = ["N/A" for _ in range(len(au_frame.index))]
+        # csv_path = join(
+        #     patient_dir,
+        #     os.path.basename(patient_dir).replace('_cropped', '') +
+        #     '_emotions.csv')
+        csv_path = os.path.join('/home/emil/emotion_annotations',patient_dir.replace('cropped','emotions.csv'))
         num_frames = int(
-            VidCropper.duration(get_vid_from_dir(patient_dir)) * 30)
+            VidCropper.duration(get_vid_from_dir(patient_dir)) * 30) #this is the length of orig video
+
 
         if os.path.exists(csv_path):
             csv_dict = AUGui.csv_emotion_reader(csv_path)
 
             if csv_dict:
                 annotated_ratio = int(num_frames / len(csv_dict))
-
+                if annotated_ratio>1:
+                    print('HELLO HERE IS SUCH A CASE:',patient_dir)
                 if annotated_ratio == 0:
                     annotated_ratio = 1
                 csv_dict = {
@@ -113,9 +107,20 @@ def find_scores(patient_dir: str, refresh: bool):
         # au_frame = au_frame.set_index('frame')
         # au_frame["annotated"] = df.from_array(da.from_array(annotated_values, chunks=5))
         annotated_values = da.from_array(annotated_values, chunks='auto').compute()
-        au_frame = au_frame.assign(annotated=lambda x: annotated_values[x['frame']]).compute()
+        print(annotated_values.shape, 'this is the shape of annotated valeus')
+        print(len(au_frame))
+        print(len(annotated_values))
+        #what we know: au_frame['frame'] starts at 1, goes to (including) 3604
+        #annotated_values has length we want, but currently (with the +1) a length of 3605
+        #au_frame has a length of 3604 (makes sense, 1-3604)
+        #######
+        #au_frame = au_frame.assign(annotated=lambda x: annotated_values[x['frame']]).compute()
+        ########
+        au_frame = au_frame.compute()
+        au_frame = au_frame.assign(annotated=lambda x: annotated_values[x['frame'] - 1])
+
         au_frame.to_hdf(
-            os.path.join(patient_dir, 'hdfs', 'au.hdf'),
+            os.path.join(patient_dir, 'hdfs', 'au_w_anno.hdf'),
             '/data',
             format='table')
     except FileNotFoundError as not_found_error:
@@ -146,13 +151,16 @@ if __name__ == '__main__':
         x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)
     ]
     PATIENTS = get_patient_names(PATIENT_DIRS)
-    # EYEBROW_DICT = process_eyebrows(OPEN_DIR,
-    # open(join(OPEN_DIR, 'eyebrows.txt')))
+
+    # find_one_patient_scores(PATIENT_DIRS,refresh,(0,PATIENTS[0]))
+
+    ######
     PARTIAL_FIND_FUNC = functools.partial(find_one_patient_scores, PATIENT_DIRS, refresh)
     TUPLE_PATIENTS = [((i % 5), x) for i, x in enumerate(PATIENTS)]
     Pool(5).map(PARTIAL_FIND_FUNC, TUPLE_PATIENTS)
-    # Pool().map(find_scores, PATIENTS)
+    #######
 
+    # Pool().map(find_scores, PATIENTS)
     # for i, x in enumerate(PATIENTS):
         # tuple_patient = (i % cpu_count(), x)
         # find_one_patient_scores(PATIENT_DIRS, tuple_patient)

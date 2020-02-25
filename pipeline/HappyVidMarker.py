@@ -24,10 +24,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.animation as manimation
 import matplotlib.pyplot as plt
-import progressbar
+#import progressbar
 from sklearn.externals import joblib
 
-from pathos.multiprocessing import ProcessingPool as Pool
+#from pathos.multiprocessing import ProcessingPool as Pool
 
 
 def bar_movie(vid, vid_dir, times, corr, replace_input=True):
@@ -51,12 +51,12 @@ def bar_movie(vid, vid_dir, times, corr, replace_input=True):
     test_line = os.path.join(vid_dir, 'writer_test_line.mp4')
 
     norm = plt.Normalize()
-    plt.cm.jet(norm(corr))
+    #plt.cm.jet(norm(corr))
 
     fig = plt.figure(figsize=(14, 2))
     ax = fig.add_subplot(111)
 
-    li, = ax.plot(times, corr)
+    li = ax.scatter(times, corr)
     vl = ax.vlines(0, 0, 1)
 
     with writer.saving(fig, test_line, 100):

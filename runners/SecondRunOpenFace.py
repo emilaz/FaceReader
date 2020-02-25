@@ -26,15 +26,15 @@ def do_second_run(patient_directory):
 
     num_gpus = 1
     processes = []
-
+    CONDA_ENV = '/home/emil/miniconda3/envs/br_doc/bin/python'
     patient_map = patient_info.get_patient_names(files)
 
     split_patients = np.array_split(patient_map, num_gpus)
-
     for index in range(num_gpus):
         curr_split_patients = split_patients[index]
         cli_command = [
-            "python3",
+            # "python3",
+            CONDA_ENV,
             to_run,
             "-od",
             patient_directory,

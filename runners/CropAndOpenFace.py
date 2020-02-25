@@ -5,6 +5,7 @@
 """
 
 import glob
+import shutil
 import json
 import os
 import subprocess
@@ -16,16 +17,18 @@ import ImageCropper
 import VidCropper
 
 
-def run_open_face(im_dir, vid_mode=False, remove_intermediates=False) -> str:
+def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs = True) -> str:
     """
     Runs OpenFace
 
     :param im_dir: Location of images if not in video mode, location of video if in video mode
     :param vid_mode: Whether or not to be in video mode (alternative is to run on an image sequence)
     :param remove_intermediates: Whether or not to remove intermediate files
+    :param from_imgs: By Emil. When we converted the videos to images beforehand (to avoid frame dropping)
     :return: Name of output video produced by OpenFace (with landmarks)
+
     """
-    executable = '/home/gvelchuru/OpenFace/build/bin/FeatureExtraction'  # Change to location of OpenFace
+    executable = '/home/emil/OpenFace/build/bin/FeatureExtraction'  # Change to location of OpenFace
 
     if not vid_mode:
         subprocess.Popen(
@@ -40,38 +43,52 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=False) -> str:
         vid_name = 'inter_out.avi'
         out_name = 'out.avi'
 
+
     FNULL = open(os.devnull, 'w')
+    #try on images
     subprocess.Popen(
-        '{0} -f {1} -of {2} -ov {3} -q -wild -multi-view 1'.format(
-            executable, os.path.join(im_dir, vid_name),
-            os.path.join(im_dir, 'au.csv'), os.path.join(im_dir, out_name)),
+        '{0} -fdir {1} -of {2} -out_dir {3} -wild -multi-view 1'.format(
+            executable, os.path.join(im_dir, 'frames'),
+            'au.csv', im_dir),
         shell=True,
         stdout=FNULL,
-        stderr=subprocess.STDOUT).wait()
+        stderr=subprocess.STDOUT
+        ).wait()
+
+    # fin = open('openface_output_verbose.txt', 'r')
+    # print(fin.read(), end = "")
+    # fin.close()
 
     vid_name = os.path.basename(im_dir).replace('_cropped', '')
     vid_name_parts = vid_name.split('_')
     patient_name = vid_name_parts[0]
-    day_num = vid_name_parts[1]
-    session_num = vid_name_parts[2]
+    sess_num = vid_name_parts[1]
+    vid_num = vid_name_parts[2]
 
     if 'au.csv' in os.listdir(im_dir):
         au_dataframe = df.read_csv(os.path.join(im_dir, 'au.csv'))
         # sLength = len(au_dataframe['frame'])
         au_dataframe = au_dataframe.assign(patient=lambda x: patient_name)
-        au_dataframe = au_dataframe.assign(day=lambda x: day_num)
-        au_dataframe = au_dataframe.assign(session=lambda x: session_num)
+        au_dataframe = au_dataframe.assign(session=lambda x: sess_num)
+        au_dataframe = au_dataframe.assign(video=lambda x: vid_num)
         au_dataframe = au_dataframe.compute()
+        new_colnames = []
+
+        for name in au_dataframe.columns:
+            new_colnames.append(name.lstrip(' '))
+        au_dataframe.columns = new_colnames
+
         # au_dataframe = au_dataframe.assign(
         df_dir = os.path.join(im_dir, 'hdfs')
 
         if not os.path.exists(df_dir):
             os.mkdir(df_dir)
-        au_dataframe.to_hdf(os.path.join(df_dir, 'au_0.hdf'), '/data', format='table')
+        au_dataframe.to_hdf(os.path.join(df_dir, 'au.hdf'),key= '/data', format='table')
         # df.read_hdf(os.path.join(df_dir, 'au_0.hdf'), '/data') # assert saved correctly
 
     if remove_intermediates:
-        os.remove(os.path.join(im_dir, vid_name))
+        #os.remove(os.path.join(im_dir, vid_name))
+        shutil.rmtree(os.path.join(im_dir,'frames'))
 
     return out_name
 

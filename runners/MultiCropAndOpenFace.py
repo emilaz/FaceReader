@@ -8,32 +8,64 @@ import glob
 import json
 import os
 import subprocess
+from warnings import warn
 import sys
 import numpy as np
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import CropAndOpenFace
+from timeit import default_timer as timer
 
 
-def make_vids(path, all = False):
+def make_vids(input_path, output_path, emotions = True):
     """
-    Return list of vids not processed yet given a path
+    Return list of vids not processed yet given a path.
+    NEW: Also return only those that have emotions file
     :param path: Path to video directory
     :type path: str
     :return: list of vids to do
     """
-    folder_components = set(os.path.join(path, x) for x in os.listdir(path))
+    folder_components = set(os.path.join(output_path, x) for x in os.listdir(output_path))
 
-    return [
-        x for x in glob.glob(os.path.join(path, '*.avi'))
+    #this is to find all .avi videos that are in the given input dir, even recursively
+    #might not always be needed (somewhat time consuming)
+    paths = []
+    for root, dirs, files in os.walk(input_path):
+        for file in files:
+            if file.endswith(".avi"):
+                paths.append(os.path.join(root, file))
 
-        if (os.path.splitext(x)[0] + '_cropped' not in folder_components
-            or 'hdfs' not in os.listdir(
-                os.path.join(path,
-                             os.path.splitext(x)[0] + '_cropped')))
-    ]
+
+    if emotions:
+        to_process = []
+        for p in paths:
+            x = os.path.splitext(os.path.split(p)[1])[0]
+            if x + '_emotions.csv' in os.listdir('/home/emil/emotion_annotations'):
+                if (os.path.join(output_path, x) + '_cropped' not in folder_components
+                        or 'hdfs' not in os.listdir(
+                            os.path.join(output_path,
+                                         x + '_cropped'))):
+                    to_process.append(p)
 
 
-def make_crop_and_nose_files(path):
+    else:
+        warn('This is probably not correct here, time let me do this this way. Dont use or correct.')
+        pat_sess_vid = [os.path.splitext(os.path.split(x)[1])[0] for x in paths]
+        to_process = [
+            os.path.join(input_path, x + '.avi') for x in pat_sess_vid
+
+            if (os.path.join(output_path, x) + '_cropped' not in folder_components
+                or 'hdfs' not in os.listdir(
+                        os.path.join(output_path,
+                                     os.path.splitext(x)[0] + '_cropped')))
+        ]
+
+
+
+    return to_process
+
+
+
+def make_crop_and_nose_files(path): #FOUND OUT: These are just supposed to be a collection of patient_day_vid key and ACTUAL crop file path as value, so basically a lookup dictionary.
     crop_file = os.path.join(path, 'crop_files_list.txt')
     nose_file = os.path.join(path, 'nose_files_list.txt')
 
@@ -51,16 +83,17 @@ def make_crop_and_nose_files(path):
 
 
 if __name__ == '__main__':
+    print(os.getcwd())
+    input_path = sys.argv[sys.argv.index('-id') + 1]
+    output_path = sys.argv[sys.argv.index('-od') + 1]
 
-    path = sys.argv[sys.argv.index('-id') + 1]
-
-    vids = make_vids(path)
-    num_GPUs = 1
+    vids = make_vids(input_path,output_path)
+    num_GPUs = 2
     processes = []
     indices = np.linspace(0, len(vids), num=num_GPUs + 1)
 
     # TODO: make this a cmd-line arg
-    CONDA_ENV = '/home/gvelchuru/miniconda3/envs/OpenFace/bin/python'
+    CONDA_ENV = '/home/emil/miniconda3/envs/br_doc/bin/python'
 
     for index in range(len(indices) - 1):
         if '-c' not in sys.argv:
@@ -68,21 +101,22 @@ if __name__ == '__main__':
                 CONDA_ENV,
                 os.path.join(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    'helpers', 'HalfCropper.py'), '-id', path, '-vl',
+                    'helpers', 'HalfCropper.py'), '-id', input_path, '-vl',
                 str(int(indices[index])), '-vr',
-                str(int(indices[index + 1]))
+                str(int(indices[index + 1])), '-od', output_path
             ]
         else:
             cmd = [
                 CONDA_ENV,
                 os.path.join(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    'helpers', 'HalfCropper.py'), '-id', path, '-vl',
+                    'helpers', 'HalfCropper.py'), '-id', input_path, '-od', output_path, '-vl',
                 str(int(indices[index])), '-vr',
                 str(int(indices[index + 1])), '-c', sys.argv[sys.argv.index('-c') + 1], '-n', sys.argv[sys.argv.index('-n') + 1]
             ]
         processes.append(
             subprocess.Popen(
                 cmd, env={'CUDA_VISIBLE_DEVICES': '{0}'.format(str(index))}))
-
+    start = timer()
     [p.wait() for p in processes]
+    print(timer()-start, 'so viel zeit')
