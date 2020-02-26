@@ -31,7 +31,7 @@ sys.path.append(
     os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-def use_dask_xgb(out_q, emotion, df: dd.DataFrame):
+def train_classifier(out_q, emotion, df: dd.DataFrame):
 
     data, labels = make_emotion_data('Happy',df)
 
@@ -39,26 +39,17 @@ def use_dask_xgb(out_q, emotion, df: dd.DataFrame):
     scoring = ['precision', 'recall', 'f1']
     print("TRAINING")
 
-    #classifier = RandomForestClassifier(n_estimators=100)
-
     classifier_test = make_random_forest(X_train,y_train, scoring)
-    # best_params = classifier_test.best_params_
     results = classifier_test.cv_results_
     best_idx = classifier_test.best_index_
 
     classifier = classifier_test.best_estimator_
 
-    # classifier = RandomForestClassifier(n_estimators=best_params['n_estimators'], max_features=best_params['max_features'], max_depth=best_params['max_depth'])
 
-    # with parallel_backend('dask'):
-    #     scores = cross_validate(
-    #         classifier, X_train, y_train, scoring=scoring, cv=5, return_train_score=True)
     out_q.put("Best Hyperparas: {}  \n".format(classifier_test.best_params_))
     out_q.put("During CV: Mean PR {}, REC {}, F1 {} (these are on the test-fold)\n".format(
         results['mean_test_precision'][best_idx],results['mean_test_recall'][best_idx],results['mean_test_f1'][best_idx]))
 
-    # expected = y_test.values
-    # predicted = classifier.predict(X_test.values)
     print("PREDICTING")
     expected= y_test
     with parallel_backend('dask'):
@@ -276,11 +267,11 @@ if __name__ == '__main__':
     index = 1
 
     for emotion in ['Happy']:
-        use_dask_xgb(out_q, emotion, df)
+        train_classifier(out_q, emotion, df)
 
     # print(dump_queue(out_q))
 
     while not out_q.empty():
         out_file.write(out_q.get())
     out_file.close()
-    print('yes')
+    print('fuer den verein')
