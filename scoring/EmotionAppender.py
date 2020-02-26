@@ -5,22 +5,16 @@
 import argparse
 import pickle
 
-import dask
 import dask.dataframe as dd
-import dask.array as da
 import os
-import pandas as pd
 
-from sklearn.externals import joblib
-from sklearn.externals.joblib import Parallel, parallel_backend
+from joblib import parallel_backend
 from sklearn.ensemble import RandomForestClassifier
 
-from dask.distributed import Client, LocalCluster
+from dask.distributed import Client
 
-import numpy as np
 import glob
 from tqdm import tqdm
-import warnings
 
 
 def predict(x, classifier_function):

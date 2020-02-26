@@ -31,13 +31,13 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
     """
     crop_vid = os.path.join(directory, 'cropped_out.avi')
     subprocess.Popen(
-        'ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 17 {5}'
+        'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 17 {5}'
         .format(vid, str(width), str(height), str(x_min), str(y_min),
                 crop_vid),
         shell=True).wait()
     if not to_img:
         subprocess.Popen(
-            'ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih  -c:a copy {1}'.format(
+            'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih  -c:a copy {1}'.format(
                 crop_vid, os.path.join(directory, 'inter_out.avi'),
                 str(resize_factor)),
             shell=True).wait()
@@ -87,7 +87,7 @@ def duration(vid_file_path):
 
     # if everything didn't happen,
     # we got here because no single 'return' in the above happen.
-    raise DurationException('I found no duration')
+    raise DurationException('I found no duration for video {} given the cwd {}'.format(vid_file_path,os.getcwd()))
     # return None
 
 

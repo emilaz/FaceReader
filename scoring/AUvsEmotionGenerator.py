@@ -69,16 +69,18 @@ def find_scores(patient_dir: str, refresh: bool):
 
             # return
         # au_frame = au_frame[au_frame.vid == session]
-
-        annotated_values = ["N/A" for _ in range(len(au_frame.index) + 1)]
+        #these are to be filled with annotations from file
+        annotated_values = ["N/A" for _ in range(len(au_frame.index))]
         # annotated_values = ["N/A" for _ in range(len(au_frame.index))]
         # csv_path = join(
         #     patient_dir,
         #     os.path.basename(patient_dir).replace('_cropped', '') +
         #     '_emotions.csv')
+        #here are the hand annotations
         csv_path = os.path.join('/home/emil/emotion_annotations',patient_dir.replace('cropped','emotions.csv'))
         num_frames = int(
-            VidCropper.duration(get_vid_from_dir(patient_dir)) * 30) #this is the length of orig video
+            #VidCropper.duration(get_vid_from_dir(patient_dir)) * 30) #this is the length of orig video
+            VidCropper.duration(os.path.join(patient_dir,'au.avi')) * 30)  # this is the length of orig video
 
 
         if os.path.exists(csv_path):
@@ -109,7 +111,6 @@ def find_scores(patient_dir: str, refresh: bool):
         annotated_values = da.from_array(annotated_values, chunks='auto').compute()
         print(annotated_values.shape, 'this is the shape of annotated valeus')
         print(len(au_frame))
-        print(len(annotated_values))
         #what we know: au_frame['frame'] starts at 1, goes to (including) 3604
         #annotated_values has length we want, but currently (with the +1) a length of 3605
         #au_frame has a length of 3604 (makes sense, 1-3604)
@@ -150,6 +151,7 @@ if __name__ == '__main__':
     PATIENT_DIRS = [
         x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)
     ]
+    #this gets their names_sess_vid, no path or extension or anything.
     PATIENTS = get_patient_names(PATIENT_DIRS)
 
     # find_one_patient_scores(PATIENT_DIRS,refresh,(0,PATIENTS[0]))
