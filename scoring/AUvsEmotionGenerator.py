@@ -7,13 +7,12 @@ from pathos.multiprocessing import ProcessingPool as Pool
 import functools
 import sys
 import os
-sys.path.append(
-    os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from OpenFaceScripts.helpers.patient_info import patient_day_session, get_patient_names
-from OpenFaceScripts.runners import VidCropper
-from OpenFaceScripts import AUGui
-from OpenFaceScripts.helpers.SecondRunHelper import process_eyebrows, get_vid_from_dir
+# sys.path.append(
+#     os.path.dirname(
+#         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from helpers.patient_info import patient_day_session, get_patient_names
+from runners import VidCropper
+import AUGui
 
 """
 .. module:: AUvsEmotionGenerator
@@ -38,6 +37,10 @@ def find_scores(patient_dir: str, refresh: bool):
 
     :param patient_dir: Directory to look in
     """
+
+    if not refresh and 'au_w_anno.hdf' in os.listdir(os.path.join(patient_dir,'hdfs')):
+        return
+
     try:
         patient, day, session = patient_day_session(patient_dir)
         try:
@@ -51,36 +54,16 @@ def find_scores(patient_dir: str, refresh: bool):
 
             # return
 
-        if 'annotated' in au_frame.columns and not refresh:
-            return
-
         if 'frame' not in au_frame.columns:
             return
 
-        # Restrict to a subset of frames which are relevant, currently
-        # unnecessary since we parse single directories
-        # au_frame = au_frame[au_frame.patient == patient and au_frame.session == day
-        # and au_frame.vid == session]
-        # au_frame = au_frame[au_frame.patient == patient]
-        # try:
-        # au_frame = au_frame[au_frame.session == day]
-        # except AttributeError as e:
-            # print(e)
-
-            # return
-        # au_frame = au_frame[au_frame.vid == session]
-        #these are to be filled with annotations from file
         annotated_values = ["N/A" for _ in range(len(au_frame.index))]
-        # annotated_values = ["N/A" for _ in range(len(au_frame.index))]
-        # csv_path = join(
-        #     patient_dir,
-        #     os.path.basename(patient_dir).replace('_cropped', '') +
-        #     '_emotions.csv')
+
         #here are the hand annotations
         csv_path = os.path.join('/home/emil/emotion_annotations',patient_dir.replace('cropped','emotions.csv'))
         num_frames = int(
             #VidCropper.duration(get_vid_from_dir(patient_dir)) * 30) #this is the length of orig video
-            VidCropper.duration(os.path.join(patient_dir,'au.avi')) * 30)  # this is the length of orig video
+            VidCropper.duration(os.path.join(patient_dir,'au.avi')) * 30)  # this is the length of au video (should be 1 frame less than orig
 
 
         if os.path.exists(csv_path):

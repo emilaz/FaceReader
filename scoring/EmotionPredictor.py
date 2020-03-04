@@ -13,12 +13,13 @@ import gc
 import glob
 import pickle
 import functools
+from threading import Lock
 from tqdm import tqdm
 import sys
-import time
 
 import dask.dataframe as dd
-from dask_ml.model_selection import train_test_split
+# from dask_ml.model_selection import train_test_split
+from sklearn.model_selection import train_test_split
 from dask_ml.model_selection import GridSearchCV
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
@@ -35,25 +36,24 @@ def train_classifier(out_q, emotion, df: dd.DataFrame):
 
     data, labels = make_emotion_data('Happy',df)
 
-    X_train, X_test, y_train, y_test = train_test_split(data, labels)
+    X_train, X_test, y_train, y_test = train_test_split(data, labels)#,shuffle=False)
     scoring = ['precision', 'recall', 'f1']
     print("TRAINING")
 
-    classifier_test = make_random_forest(X_train,y_train, scoring)
-    results = classifier_test.cv_results_
-    best_idx = classifier_test.best_index_
+    best_classifier = make_random_forest(X_train,y_train, scoring)
+    results = best_classifier.cv_results_
+    best_idx = best_classifier.best_index_
 
-    classifier = classifier_test.best_estimator_
+    classifier = best_classifier.best_estimator_
 
 
-    out_q.put("Best Hyperparas: {}  \n".format(classifier_test.best_params_))
+    out_q.put("Best Hyperparas: {}  \n".format(best_classifier.best_params_))
     out_q.put("During CV: Mean PR {}, REC {}, F1 {} (these are on the test-fold)\n".format(
         results['mean_test_precision'][best_idx],results['mean_test_recall'][best_idx],results['mean_test_f1'][best_idx]))
 
     print("PREDICTING")
     expected= y_test
     with parallel_backend('dask'):
-        # classifier.fit(X_train, y_train)
         predicted = classifier.predict(X_test)
 
         out_q.put("Results on separate test set (not seen during training):\n%s\n" %
@@ -68,138 +68,51 @@ def train_classifier(out_q, emotion, df: dd.DataFrame):
 def make_random_forest(feats, labels, scoring) -> GridSearchCV:
     param_grid = {
         'n_estimators': [r for r in range(25,151,25)],
-        #'max_features': np.random.choice(np.arange(min(feats.shape))[1:],5),
         'max_features':['auto','log2'],
         # 'max_depth': np.random.choice(np.arange(60)[1:],5),
     }
 
-    random_forest = GridSearchCV(RandomForestClassifier(), param_grid, scoring=scoring, n_jobs=multiprocessing.cpu_count(), cv=3, refit='f1')
+    random_forest = GridSearchCV(RandomForestClassifier(), param_grid, scoring=scoring, n_jobs=multiprocessing.cpu_count(), cv=5, refit='f1')
     random_forest.fit(feats, labels)
     return random_forest
 
 def make_emotion_data(emotion, df):
+    print('Making emotion data...')
     data_columns = [x for x in df.columns if 'predicted' not in x and 'patient' not in x and 'session' not in x and 'vid' not in x]
     df = df[data_columns]
+
     data = df[df['annotated'] != "N/A"]
     data = data[data['annotated'] != ""]
-
     emote_data = data[data['annotated'] == emotion]
     non_emote_data = data[data['annotated'] != emotion]
 
     #I think this is for balancing Emo/Non-Emo samples during training
+    ####shuffle approach
     non_emote_data = non_emote_data.sample(frac=len(emote_data)/len(non_emote_data))
-
     data = dd.concat([emote_data, non_emote_data], interleave_partitions=True)
     labels = (data['annotated'] == emotion)
-
-    # print(labels.unique().compute())
 
     del data['annotated']
     data = data.compute()
     labels = labels.compute()
+    ####
+
+    ####non-shuffle approach
+    # non_emote_data = non_emote_data.sample(frac=len(emote_data) / len(non_emote_data))
+    # data = dd.concat([emote_data, non_emote_data], interleave_partitions=True).compute().sort_index().reset_index(
+    #     drop=True)
+    # labels = (data['annotated'] == emotion)
+    # del data['annotated']
+    ####
+
+    print('Done')
     return data, labels
-# def use_classifier(out_q, emotion: str, classifier, dfs):
-#     """
-#     Train an emotion classifier
-#
-#     :param out_q: Queue to put classification report in (for multiprocessing)
-#     :param emotion: emotion to classify
-#     :param classifier: classifier to train and dump
-#     """
-#
-#     # out_q.put(emotion + '\n')
-#     # out_q.put('Best params \n')
-#     # out_q.put(str(classifier.best_params_) + '\n')
-#     # out_q.put("Best f1 score \n")
-#     # out_q.put(str(classifier.best_score_) + '\n')
-#     index = 0
-#
-#     # for patient_dir in tqdm(PATIENT_DIRS):
-#             # dfs = []
-#             # try:
-#                 # curr_df = dd.read_hdf(os.path.join(patient_dir, 'hdfs', 'au.hdf'), '/data')
-#                 # curr_df = curr_df[curr_df[' success'] == 1]
-#                 # curr_df = curr_df.compute()
-#
-#                 # if not curr_df.empty and 'annotated' in curr_df.columns and 'frame' in curr_df.columns:
-#                     # dfs.append(curr_df)
-#                     # # import pdb; pdb.set_trace()
-#
-#                     # # if df is None:
-#                         # # df = curr_df
-#                     # # else:
-#                         # # df = df.append(curr_df)
-#
-#                         # # if i and i % 500 == 0:
-#                             # # # df = df.compute()
-#                             # # df.to_hdf('au_*.hdf', '/data', format='table', scheduler='processes')
-#                     # # out_q.put(curr_df)
-#
-#                 # if index == 500:
-#
-#     print("TRAINING")
-#
-#     num_training = 1000
-#     au_test = []
-#     target_test = []
-#     out_q.put(emotion + '\n')
-#
-#     while len(dfs) >= num_training:
-#         curr_df = dd.concat(dfs[:num_training], interleave_partitions=True)
-#         au_data, target_data = make_emotion_data(emotion, curr_df)
-#         curr_au_train, curr_au_test, curr_target_train, curr_target_test = train_test_split(au_data, target_data, test_size=.1)
-#         classifier.fit(curr_au_train, curr_target_train)
-#         scores = cross_val_score(
-#             classifier, curr_au_train, curr_target_train, scoring='precision')
-#         out_q.put("Cross val precision for classifier {0}:\n{1}\n".format(
-#             classifier, scores.mean()))
-#         scores = cross_val_score(
-#             classifier, curr_au_train, curr_target_train, scoring='recall')
-#         out_q.put("Cross val recall for classifier {0}:\n{1}\n".format(
-#             classifier, scores.mean()))
-#         au_test.extend(curr_au_test)
-#         target_test.extend(curr_target_test)
-#         classifier.n_estimators += 10
-#         dfs = dfs[num_training:]
-#         # dfs.clear()
-#             # except AttributeError as e:
-#                 # print(e)
-#             # except ValueError as e:
-#                 # print(e)
-#             # except KeyError as e:
-#                 # print(e)
-#     curr_df = dd.concat(dfs, interleave_partitions=True)
-#     au_data, target_data = make_emotion_data(emotion, curr_df)
-#     curr_au_train, curr_au_test, curr_target_train, curr_target_test = train_test_split(au_data, target_data, test_size=.1)
-#     classifier.fit(curr_au_train, curr_target_train)
-#     scores = cross_val_score(
-#         classifier, curr_au_train, curr_target_train, scoring='precision')
-#     out_q.put("Cross val precision for classifier {0}:\n{1}\n".format(
-#         classifier, scores.mean()))
-#     scores = cross_val_score(
-#         classifier, curr_au_train, curr_target_train, scoring='recall')
-#     out_q.put("Cross val recall for classifier {0}:\n{1}\n".format(
-#         classifier, scores.mean()))
-#     au_test.extend(curr_target_train)
-#     target_test.extend(curr_target_test)
-#
-#     expected = target_test
-#     predicted = classifier.predict(au_test)
-#
-#     out_q.put("Classification report for classifier %s:\n%s\n" %
-#               (classifier, metrics.classification_report(expected, predicted)))
-#     out_q.put("Confusion matrix:\n%s\n" % metrics.confusion_matrix(
-#         expected, predicted))  # joblib.dump(classifier,
-#     # '{0}_trained_RandomForest_with_pose'.format(emotion), compress=1)
-#     pickle.dump(
-#         classifier,
-#         open('{0}_trained_RandomForest_with_pose.pkl'.format(emotion), 'wb'))
 
 def load_patient(out_q, patient_dir):
         try:
+            lock = Lock()
             curr_df = dd.read_hdf(os.path.join(patient_dir, 'hdfs', 'au_w_anno.hdf'), '/data')
             curr_df = curr_df[curr_df['success'] == 1]
-            # curr_df = curr_df.compute()
 
             if len(curr_df) and 'annotated' in curr_df.columns and 'frame' in curr_df.columns:
                 out_q.put(curr_df)
@@ -225,7 +138,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-id", help="Path to OpenFaceTests directory")
     parser.add_argument("-refresh", help="Refresh DataFrame", action="store_true")
+    parser.add_argument("-drop", help="Patient to leave out for training/testing")
     args = parser.parse_args()
+    leave_out = args.drop
     OpenDir = args.id
     os.chdir(OpenDir)
     au_path = os.path.join('all_aus', 'au_*.hdf')
@@ -234,19 +149,29 @@ if __name__ == '__main__':
 
         if not os.path.exists('all_aus'):
             os.mkdir('all_aus')
+        else: #if the folder already exists, make sure that it's empty to avoid having old files remain
+            files_to_delete = glob.glob('all_aus/*')
+            for f in files_to_delete:
+                os.remove(f)
         PATIENT_DIRS = [
-            x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)
+            x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x) and leave_out not in x #this is for leaving out 1 patient
         ]
         dfs = []
         df = None
         patient_queue = multiprocessing.Manager().Queue()
         partial_patient_func = functools.partial(load_patient, patient_queue)
-        # with Pool() as p:
         max_ = len(PATIENT_DIRS)
         with Pool() as p:
             with tqdm(total=max_) as pbar:
                 for i, _ in enumerate(p.imap(partial_patient_func, PATIENT_DIRS[:max_], chunksize=100)):
                     pbar.update()
+        ###
+        #just for now:
+        # dask_hdfs = dump_queue(patient_queue)
+        # pd_hdfs = [d.compute() for d in dask_hdfs]
+        # df = pd.concat(pd_hdfs)
+        # df = dd.from_pandas(df, chunksize=5000)
+        # ###
         df = dd.concat(dump_queue(patient_queue), interleave_partitions=True)
         del patient_queue
         gc.collect()
@@ -257,14 +182,14 @@ if __name__ == '__main__':
         print(client)
 
     else:
+        lock = Lock()
         client = Client(processes=False)
         print(client)
         df = dd.read_hdf(au_path, '/data')
+        print('Files read')
 
     out_file = open(os.path.join('all_aus','classifier_performance.txt'), 'w')
     out_q = multiprocessing.Manager().Queue()
-
-    index = 1
 
     for emotion in ['Happy']:
         train_classifier(out_q, emotion, df)
@@ -275,3 +200,4 @@ if __name__ == '__main__':
         out_file.write(out_q.get())
     out_file.close()
     print('fuer den verein')
+    quit()
