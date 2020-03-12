@@ -47,7 +47,7 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs =
     FNULL = open(os.devnull, 'w')
     #try on images
     subprocess.Popen(
-        '{0} -fdir {1} -of {2} -out_dir {3} -wild -multi-view 1'.format(
+        'ionice -c2 -n1 {0} -fdir {1} -of {2} -out_dir {3} -wild -multi-view 1'.format(
             executable, os.path.join(im_dir, 'frames'),
             'au.csv', im_dir),
         shell=True,

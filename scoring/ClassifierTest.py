@@ -45,7 +45,7 @@ if __name__ == '__main__':
     ###
     # df = dd.concat(dump_queue(patient_queue), interleave_partitions=True)
 
-    feat, label = make_emotion_data('Happy',df)
+    feat, label, _ = make_emotion_data('Happy',df)
     # 2.load trained classifier
     print('load classifier')
     rf_classifier = pickle.load(open(classifier, 'rb'))
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     predicted = rf_classifier.predict(feat)
     #4. write to file
     print('write')
-    f = open('/home/emil/openface_output/all_aus/test_sep_pat.txt', 'w')
+    f = open('/home/emil/openface_output/all_aus/test_sep_pat_ordered.txt', 'w')
     f.write("Results on separate patient (not seen during training):\n%s\n" %
               (metrics.classification_report(label, predicted)))
     f.write("Confusion matrix:\n%s\n" % metrics.confusion_matrix(
