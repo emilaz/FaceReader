@@ -24,7 +24,7 @@ from sklearn.model_selection import GroupKFold
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import average_precision_score, make_scorer
 #from sklearn.model_selection import GridSearchCV
-from dask_ml.model_selection import GridSearchCV, RandomizedSearchCV
+from dask_ml.model_selection import RandomizedSearchCV
 
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
@@ -46,7 +46,7 @@ def train_classifier(out_q, emotion, df: dd.DataFrame):
     data, labels, groups = make_emotion_data('Happy',df)
     print(data.columns,len(groups))
     # X_train, X_test, y_train, y_test, group_train, group_test = train_test_split(data, labels, groups,shuffle=True)
-    #split off some patients
+    #split off some sessions
     gss = GroupShuffleSplit(n_splits=2, test_size=.2)
     tr_idx, te_idx = [(tr_te_pair) for tr_te_pair in gss.split(data, groups=groups)][0]
     X_train = data.loc[tr_idx]
@@ -55,7 +55,6 @@ def train_classifier(out_q, emotion, df: dd.DataFrame):
     y_test = labels.loc[te_idx]
     group_train = groups.loc[tr_idx]
     group_test = groups.loc[te_idx]
-    # scoring = ['precision', 'recall', 'f1']
     scorer = make_scorer(average_precision_score,needs_proba=True)
     print("TRAINING")
     start = time.time()
@@ -68,6 +67,7 @@ def train_classifier(out_q, emotion, df: dd.DataFrame):
 
     print('Getting optimal threshold...')
     thresh = get_optimal_threshold(classifier,X_train,y_train)
+    print('threshold:', thresh)
 
 
     out_q.put("Best Hyperparas: {}, best threshold {}  \n".format(best_classifier.best_params_, thresh))
@@ -93,7 +93,6 @@ def train_classifier(out_q, emotion, df: dd.DataFrame):
     print("PREDICTING")
     expected= y_test
     with parallel_backend('dask'):
-        # predicted = classifier.predict(X_test)
         predicted = get_prediction(classifier,X_test,thresh)
         out_q.put("Results on separate test set (session seen during training):\n%s\n" %
                 (metrics.classification_report(expected, predicted)))
@@ -113,7 +112,6 @@ def make_random_forest(feats, labels, groups, scoring):
         'max_depth': np.random.choice(np.arange(60)[1:],10),
     }
     groupkfold = GroupKFold(n_splits=8)
-    # random_forest = GridSearchCV(RandomForestClassifier(), param_grid, scoring=scoring, n_jobs=multiprocessing.cpu_count(), cv=groupkfold)
     random_forest = RandomizedSearchCV(RandomForestClassifier(), param_grid, n_iter=15, scoring=scoring, n_jobs=multiprocessing.cpu_count(), cv=groupkfold)
     random_forest.fit(feats, labels, groups=groups)
     return random_forest
@@ -293,7 +291,6 @@ if __name__ == '__main__':
         print(client)
 
     else:
-        lock = Lock()
         client = Client(processes=False)
         print(client)
         df = dd.read_hdf(au_path, '/data')

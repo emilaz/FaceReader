@@ -16,25 +16,13 @@ from dask.distributed import Client
 import glob
 from tqdm import tqdm
 
+from scoring.EmotionPredictor import  get_prediction
 
-def predict(x, classifier_function):
-    x = x[
-        [
-            c
-            for c in x.columns
-            if all(
-                [
-                    w not in c
-                    for w in ["predicted", "patient", "session", "vid", "annotated"]
-                ]
-            )
-        ]
-    ]
-
-    # compute_arr = x.compute()
-    compute_arr = x
-    predicted = classifier_function(compute_arr)
-
+def predict(df, classifier_function):
+    data_columns = [x for x in df.columns if
+                    x not in ['predicted','frame', 'face_id', 'success', 'timestamp', 'confidence', 'patient', 'video','annotated']]
+    df = df[data_columns]
+    predicted = classifier_function(df)
     return predicted
 
 
@@ -57,26 +45,32 @@ def add_classification(
                     os.path.join(patient_dir, "hdfs", "au_w_anno.hdf"), "/data"
                 )
                 # curr_df = curr_df[curr_df[" success"] == 1]
-                curr_df = curr_df.compute()
+                # curr_df = curr_df.compute()
 
                 if (
                     len(curr_df)
                     and "annotated" in curr_df.columns
                     and "frame" in curr_df.columns
                 ):
-                    kwargs = {
-                        "{0}_predicted".format(emotion): lambda x: predict(
-                            x, classifier_path.predict
-                        ),
-                        "{0}_predicted_proba".format(emotion): lambda x: [
-                            n[1] for n in predict(x, classifier_path.predict_proba)
-                        ],
-                    }
-                    imp_columns=['patient','session','vid','frame','success','timestamp','annotated','confidence','datetime']
+                    # kwargs = {
+                    #     "{0}_predicted".format(emotion): lambda x: predict(
+                    #         x, classifier_path.predict
+                    #     ),
+                    #     "{0}_predicted_proba".format(emotion): lambda x: [
+                    #         n[1] for n in predict(x, classifier_path.predict_proba)
+                    #     ],
+                    # }
+                    inference_columns = [x for x in curr_df.columns if
+                                    x not in ['predicted', 'frame', 'face_id', 'success', 'timestamp', 'confidence',
+                                              'patient', 'video', 'annotated', 'session']]
+                    inference_df = curr_df[inference_columns].compute()
+                    happy = get_prediction(classifier_path,inference_df,0.4862) #found during training
+                    imp_columns=['patient','session','video','frame','success','confidence','annotated',]
                     
                     #curr_df = curr_df.assign(**kwargs)
-                    emotion_df = curr_df[imp_columns]
-                    emotion_df = emotion_df.assign(**kwargs)
+                    emotion_df = curr_df[imp_columns].compute()
+                    emotion_df['Happy'] = happy
+                    # emotion_df = emotion_df.assign(**kwargs)
                     # create name for new dataframe (using patient_session_frame)
 
                     # store in the out_fullpath
@@ -104,9 +98,9 @@ def add_classification(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("dataframe_folder", help="Path to DataFrame containing folder")
-    parser.add_argument("classifier", help="Path to classifier")
-    parser.add_argument("emotion", help="Emotion")
+    parser.add_argument("-data", help="Path to DataFrame containing folder")
+    parser.add_argument("-classifier", help="Path to classifier")
+    parser.add_argument("-emotion", help="Emotion")
     #parser.add_argument("out_subfolder", help="Sub folder to store the emotion predictions (it will be stored under dataframe_folder directory)")
     
 
@@ -137,4 +131,4 @@ if __name__ == "__main__":
     #     os.mkdir(out_folder)
     
 
-    add_classification(ARGS.dataframe_folder, classifier_path, emotion)
+    add_classification(ARGS.data, classifier_path, emotion)
