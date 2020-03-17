@@ -16,7 +16,7 @@ import CropAndOpenFace
 from timeit import default_timer as timer
 
 
-def make_vids(input_path, output_path, emotions = True):
+def make_vids(input_path, output_path, emotions = False):
     """
     Return list of vids not processed yet given a path.
     NEW: Also return only those that have emotions file
@@ -34,7 +34,7 @@ def make_vids(input_path, output_path, emotions = True):
             if file.endswith(".avi"):
                 paths.append(os.path.join(root, file))
 
-
+    #this is for processing only those videos we have emotion annotations for
     if emotions:
         to_process = []
         for p in paths:
@@ -48,7 +48,6 @@ def make_vids(input_path, output_path, emotions = True):
 
 
     else:
-        warn('This is probably not correct here, time let me do this this way. Dont use or correct.')
         pat_sess_vid = [os.path.splitext(os.path.split(x)[1])[0] for x in paths]
         to_process = [
             os.path.join(input_path, x + '.avi') for x in pat_sess_vid
@@ -58,9 +57,6 @@ def make_vids(input_path, output_path, emotions = True):
                         os.path.join(output_path,
                                      os.path.splitext(x)[0] + '_cropped')))
         ]
-
-
-
     return to_process
 
 
@@ -83,7 +79,6 @@ def make_crop_and_nose_files(path): #FOUND OUT: These are just supposed to be a 
 
 
 if __name__ == '__main__':
-    print(os.getcwd())
     input_path = sys.argv[sys.argv.index('-id') + 1]
     output_path = sys.argv[sys.argv.index('-od') + 1]
 
