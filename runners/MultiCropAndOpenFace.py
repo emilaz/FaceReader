@@ -35,8 +35,8 @@ def make_vids(input_path, output_path, emotions = False):
                 paths.append(os.path.join(root, file))
 
     #this is for processing only those videos we have emotion annotations for
+    to_process = []
     if emotions:
-        to_process = []
         for p in paths:
             x = os.path.splitext(os.path.split(p)[1])[0]
             if x + '_emotions.csv' in os.listdir('/home/emil/emotion_annotations'):
@@ -48,15 +48,13 @@ def make_vids(input_path, output_path, emotions = False):
 
 
     else:
-        pat_sess_vid = [os.path.splitext(os.path.split(x)[1])[0] for x in paths]
-        to_process = [
-            os.path.join(input_path, x + '.avi') for x in pat_sess_vid
-
+        for p in paths:
+            x = os.path.splitext(os.path.split(p)[1])[0]
             if (os.path.join(output_path, x) + '_cropped' not in folder_components
-                or 'hdfs' not in os.listdir(
+                    or 'hdfs' not in os.listdir(
                         os.path.join(output_path,
-                                     os.path.splitext(x)[0] + '_cropped')))
-        ]
+                                     x + '_cropped'))):
+                    to_process.append(p)
     return to_process
 
 
@@ -77,7 +75,6 @@ def make_crop_and_nose_files(path): #FOUND OUT: These are just supposed to be a 
 
     return json.load(open(crop_file)), json.load(open(nose_file))
 
-
 if __name__ == '__main__':
     input_path = sys.argv[sys.argv.index('-id') + 1]
     output_path = sys.argv[sys.argv.index('-od') + 1]
@@ -92,7 +89,7 @@ if __name__ == '__main__':
 
     for index in range(len(indices) - 1):
         if '-c' not in sys.argv:
-            cmd = [
+            cmd = ["ionice -c2 -n7",
                 CONDA_ENV,
                 os.path.join(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -101,7 +98,7 @@ if __name__ == '__main__':
                 str(int(indices[index + 1])), '-od', output_path
             ]
         else:
-            cmd = [
+            cmd = ["ionice -c2 -n7",
                 CONDA_ENV,
                 os.path.join(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

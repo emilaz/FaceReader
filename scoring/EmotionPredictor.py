@@ -217,7 +217,6 @@ def make_emotion_data(emotion, df):
 
 def load_patient(out_q, patient_dir):
         try:
-            lock = Lock()
             curr_df = dd.read_hdf(os.path.join(patient_dir, 'hdfs', 'au_w_anno.hdf'), '/data')
             curr_df = curr_df[curr_df['success'] == 1]
 

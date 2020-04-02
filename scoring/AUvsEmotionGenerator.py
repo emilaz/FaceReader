@@ -7,9 +7,6 @@ from pathos.multiprocessing import ProcessingPool as Pool
 import functools
 import sys
 import os
-# sys.path.append(
-#     os.path.dirname(
-#         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from helpers.patient_info import patient_day_session, get_patient_names
 from runners import VidCropper
 import AUGui
@@ -92,14 +89,11 @@ def find_scores(patient_dir: str, refresh: bool):
         # au_frame = au_frame.set_index('frame')
         # au_frame["annotated"] = df.from_array(da.from_array(annotated_values, chunks=5))
         annotated_values = da.from_array(annotated_values, chunks='auto').compute()
-        print(annotated_values.shape, 'this is the shape of annotated valeus')
-        print(len(au_frame))
+
         #what we know: au_frame['frame'] starts at 1, goes to (including) 3604
         #annotated_values has length we want, but currently (with the +1) a length of 3605
         #au_frame has a length of 3604 (makes sense, 1-3604)
-        #######
-        #au_frame = au_frame.assign(annotated=lambda x: annotated_values[x['frame']]).compute()
-        ########
+
         au_frame = au_frame.compute()
         au_frame = au_frame.assign(annotated=lambda x: annotated_values[x['frame'] - 1])
 
@@ -107,8 +101,10 @@ def find_scores(patient_dir: str, refresh: bool):
             os.path.join(patient_dir, 'hdfs', 'au_w_anno.hdf'),
             '/data',
             format='table')
+
     except FileNotFoundError as not_found_error:
         print(not_found_error)
+
     except AttributeError as e:
         print(e)
 
@@ -133,6 +129,7 @@ if __name__ == '__main__':
     # Directories have been previously cropped by CropAndOpenFace
     PATIENT_DIRS = [
         x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)
+                                            and 'au_w_anno.hdf' not in os.listdir(os.path.join(x,'hdfs'))
     ]
     #this gets their names_sess_vid, no path or extension or anything.
     PATIENTS = get_patient_names(PATIENT_DIRS)

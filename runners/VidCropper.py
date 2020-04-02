@@ -8,8 +8,6 @@ import subprocess
 import sys
 import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from runners import SecondRunOpenFace, CropAndOpenFace
-from scoring.AUScorer import AUScorer
 
 
 def crop_and_resize(vid, width, height, x_min, y_min, directory,
@@ -32,13 +30,13 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
     crop_vid = os.path.join(directory, 'cropped_out.avi')
     subprocess.Popen(
         # 'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 17 {5}'
-        'ionice -c2 -n1 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 17 {5}'
+        'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 23 {5}'
         .format(vid, str(width), str(height), str(x_min), str(y_min),
                 crop_vid),
         shell=True).wait()
     if not to_img:
         subprocess.Popen(
-            'ionice -c2 -n1 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih  -c:a copy {1}'.format(
+            'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih  -c:a copy {1}'.format(
                 crop_vid, os.path.join(directory, 'inter_out.avi'),
                 str(resize_factor)),
             shell=True).wait()
@@ -56,7 +54,7 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
         #         os.path.join(directory, 'inter_out.avi'), os.path.join(img_path, '%04d.bmp')),
         #     shell=True).wait()
         subprocess.Popen(
-            'ionice -c2 -n1 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih -c:a copy -crf 17 {1}'.format(
+            'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih -c:a copy -crf 23 {1}'.format(
                 crop_vid, os.path.join(img_path, '%04d.bmp'),
                 str(resize_factor)),
             shell=True).wait()
