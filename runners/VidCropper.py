@@ -28,37 +28,43 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
     :param resize_factor: Factor by which to resize the cropped video
     """
     crop_vid = os.path.join(directory, 'cropped_out.avi')
-    subprocess.Popen(
-        # 'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 17 {5}'
-        'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 23 {5}'
-        .format(vid, str(width), str(height), str(x_min), str(y_min),
-                crop_vid),
-        shell=True).wait()
-    if not to_img:
+    #this crops the video
+    subprocess.run(
+        [
+            "ionice", "-c2", "-n5",
+            "ffmpeg", "-y", "-loglevel", "quiet", "-i", vid, "-filter:v",
+            "crop={0}:{1}:{2}:{3}".format(str(width), str(height), str(x_min), str(y_min)),
+            "-c:a", "copy", "-crf", "23",
+            crop_vid]
+    )
+
+    # subprocess.Popen(
+    #     # 'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 17 {5}'
+    #     'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 23 {5}'
+    #     .format(vid, str(width), str(height), str(x_min), str(y_min),
+    #             crop_vid),
+    #     shell=True)
+    if not to_img: #this is deprecated. change to run if you want to use it.
         subprocess.Popen(
             'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih  -c:a copy {1}'.format(
                 crop_vid, os.path.join(directory, 'inter_out.avi'),
                 str(resize_factor)),
             shell=True).wait()
     else:
+        #this scales, then converts to frames to use OpenFace on
         img_path = os.path.join(directory, 'frames')
         if not os.path.exists(img_path):
             os.mkdir(img_path)
-        # subprocess.Popen(
-        #     'ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih -c:a copy -crf 18 {1}'.format(
-        #         crop_vid, os.path.join(directory, 'inter_out.avi'),
-        #         str(resize_factor)),
-        #     shell=True).wait()
-        # subprocess.Popen(
-        #     'ffmpeg -y -loglevel quiet -i {0} {1}'.format(
-        #         os.path.join(directory, 'inter_out.avi'), os.path.join(img_path, '%04d.bmp')),
-        #     shell=True).wait()
-        subprocess.Popen(
-            'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih -c:a copy -crf 23 {1}'.format(
-                crop_vid, os.path.join(img_path, '%04d.bmp'),
-                str(resize_factor)),
-            shell=True).wait()
+        subprocess.run(
+            ['ionice', '-c2', '-n5',
+             'ffmpeg', "-y", "-loglevel", "quiet",
+             '-i', crop_vid, '-vf', 'scale={0}*iw:{0}*ih'.format(str(resize_factor)),
+             '-c:a', 'copy', '-crf', '23', os.path.join(img_path, '%04d.bmp')], check=True)
 
+        # subprocess.Popen(
+        #     'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih -c:a copy -crf 23 {1}'.format(
+        #         crop_vid, os.path.join(img_path, '%04d.bmp'),
+        #         str(resize_factor)))
     os.remove(os.path.join(directory, 'cropped_out.avi'))
 
 

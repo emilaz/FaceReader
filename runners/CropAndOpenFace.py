@@ -44,17 +44,16 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs =
         out_name = 'out.avi'
 
 
-    FNULL = open(os.devnull, 'w')
     #try on images
-    subprocess.Popen(
-        ['ionice','-c2','-n7',executable,'-fdir',os.path.join(im_dir,'frames'),  '-of', 'au.csv', '-out_dir', im_dir, '-wild','-multi_view', '1'],
+    subprocess.run(
+        ['ionice','-c2','-n5',
+         executable,'-fdir',os.path.join(im_dir,'frames'),  '-of', 'au.csv', '-out_dir', im_dir,
+         '-wild','-multi_view', '1'],
         # 'ionice -c2 -n7 {0} -fdir {1} -of {2} -out_dir {3} -wild -multi-view 1'.format(
         #     executable, os.path.join(im_dir, 'frames'),
-        #     'au.csv', im_dir),
-        shell=False,
-        stdout=FNULL,
-        stderr=subprocess.STDOUT
-        ).wait()
+        #     'au.csv', im_dir)
+        check = True
+        )
 
     # fin = open('openface_output_verbose.txt', 'r')
     # print(fin.read(), end = "")
@@ -65,7 +64,7 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs =
     patient_name = vid_name_parts[0]
     sess_num = vid_name_parts[1]
     vid_num = vid_name_parts[2]
-
+    #this cleans the csv (unnecessary spaces and adds patietn/session/vid  columns
     if 'au.csv' in os.listdir(im_dir):
         au_dataframe = df.read_csv(os.path.join(im_dir, 'au.csv'))
         # sLength = len(au_dataframe['frame'])
@@ -90,6 +89,10 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs =
     if remove_intermediates:
         #os.remove(os.path.join(im_dir, vid_name))
         shutil.rmtree(os.path.join(im_dir,'frames'))
+        # new: also remove au_aligned and .hog file
+        shutil.rmtree(os.path.join(im_dir,'au_aligned'))
+        os.remove(os.path.join(im_dir,'au.hog'))
+
 
     return out_name
 

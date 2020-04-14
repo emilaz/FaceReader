@@ -45,6 +45,7 @@ def find_scores(patient_dir: str, refresh: bool):
                 os.path.join(patient_dir, 'hdfs', 'au.hdf'), '/data')
         except ValueError as e:
             print(e)
+            return
 
         # except ValueError as e:
             # print(e)

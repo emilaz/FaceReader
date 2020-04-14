@@ -55,6 +55,17 @@ def make_vids(input_path, output_path, emotions = False):
                         os.path.join(output_path,
                                      x + '_cropped'))):
                     to_process.append(p)
+
+    #new and only for salarian!!
+    # try:
+    #     pats = []
+    #     with open('/home/emil/processed_so_far') as f:
+    #         for line in f:
+    #             pats.append(line.strip())
+    #     to_process = [p for p in to_process if p not in pats]
+    # except FileNotFoundError as e:
+    #     print(e)
+
     return to_process
 
 
@@ -89,7 +100,7 @@ if __name__ == '__main__':
 
     for index in range(len(indices) - 1):
         if '-c' not in sys.argv:
-            cmd = ["ionice -c2 -n7",
+            cmd = ["ionice","-c2", "-n5",
                 CONDA_ENV,
                 os.path.join(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -98,7 +109,7 @@ if __name__ == '__main__':
                 str(int(indices[index + 1])), '-od', output_path
             ]
         else:
-            cmd = ["ionice -c2 -n7",
+            cmd = ["ionice","-c2", "-n5",
                 CONDA_ENV,
                 os.path.join(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -112,3 +123,4 @@ if __name__ == '__main__':
     start = timer()
     [p.wait() for p in processes]
     print(timer()-start, 'so viel zeit')
+    exit(0)
