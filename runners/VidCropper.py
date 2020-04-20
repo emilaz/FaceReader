@@ -7,11 +7,12 @@ import os
 import subprocess
 import sys
 import numpy as np
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def crop_and_resize(vid, width, height, x_min, y_min, directory,
-                    resize_factor, to_img = True):
+                    resize_factor):
     """
     Crops a video and then resizes it
 
@@ -27,45 +28,42 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
     :param directory: Directory to output files to
     :param resize_factor: Factor by which to resize the cropped video
     """
+
+    img_path = os.path.join(directory, 'frames')
+    if not os.path.exists(img_path):
+        os.mkdir(img_path)
+
+    print('in crop func:', subprocess.run(['ffmpeg', '-version'], check=True, stdout=subprocess.PIPE))
+    # this crops the video
     crop_vid = os.path.join(directory, 'cropped_out.avi')
-    #this crops the video
     subprocess.run(
         [
-            "ionice", "-c2", "-n5",
-            "ffmpeg", "-y", "-loglevel", "quiet", "-i", vid, "-filter:v",
+            "ionice", "-c2", "-n2",
+            "ffmpeg", "-y", "-loglevel", "quiet", "-i", vid, "-vf",
             "crop={0}:{1}:{2}:{3}".format(str(width), str(height), str(x_min), str(y_min)),
-            "-c:a", "copy", "-crf", "23",
-            crop_vid]
+            "-c:a", "copy",
+            crop_vid], check=True
     )
 
-    # subprocess.Popen(
-    #     # 'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 17 {5}'
-    #     'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -filter:v \"crop={1}:{2}:{3}:{4}\" -c:a copy -crf 23 {5}'
-    #     .format(vid, str(width), str(height), str(x_min), str(y_min),
-    #             crop_vid),
-    #     shell=True)
-    if not to_img: #this is deprecated. change to run if you want to use it.
-        subprocess.Popen(
-            'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih  -c:a copy {1}'.format(
-                crop_vid, os.path.join(directory, 'inter_out.avi'),
-                str(resize_factor)),
-            shell=True).wait()
-    else:
-        #this scales, then converts to frames to use OpenFace on
-        img_path = os.path.join(directory, 'frames')
-        if not os.path.exists(img_path):
-            os.mkdir(img_path)
-        subprocess.run(
-            ['ionice', '-c2', '-n5',
-             'ffmpeg', "-y", "-loglevel", "quiet",
-             '-i', crop_vid, '-vf', 'scale={0}*iw:{0}*ih'.format(str(resize_factor)),
-             '-c:a', 'copy', '-crf', '23', os.path.join(img_path, '%04d.bmp')], check=True)
 
-        # subprocess.Popen(
-        #     'ionice -c2 -n7 ffmpeg -y -loglevel quiet -i {0} -vf scale={2}*iw:{2}*ih -c:a copy -crf 23 {1}'.format(
-        #         crop_vid, os.path.join(img_path, '%04d.bmp'),
-        #         str(resize_factor)))
+    # this scales, then converts to frames to use OpenFace on
+    subprocess.run(
+        ['ionice', '-c2', '-n2',
+         'ffmpeg', "-y", "-loglevel", "quiet",
+         '-i', crop_vid, '-vf', 'scale={0}*iw:{0}*ih'.format(str(resize_factor)),
+         '-c:a', 'copy', os.path.join(img_path, '%04d.bmp')], check=True)
+
     os.remove(os.path.join(directory, 'cropped_out.avi'))
+
+
+    # ### new method
+    # subprocess.run(
+    #     ['ionice', '-c2', '-n2',
+    #      'ffmpeg', "-y", #"-loglevel", "quiet",
+    #      '-i', vid, '-vf', "crop={0}:{1}:{2}:{3}, scale={4}*iw:{4}*ih".format(str(width), str(height), str(x_min), str(y_min), str(resize_factor)),
+    #      '-c:a', 'copy', os.path.join(img_path, '%04d.bmp')], check=True)
+
+
 
 
 
@@ -92,7 +90,7 @@ def duration(vid_file_path):
 
     # if everything didn't happen,
     # we got here because no single 'return' in the above happen.
-    raise DurationException('I found no duration for video {} given the cwd {}'.format(vid_file_path,os.getcwd()))
+    raise DurationException('I found no duration for video {} given the cwd {}'.format(vid_file_path, os.getcwd()))
     # return None
 
 
@@ -174,20 +172,21 @@ class CropVid:
 
     def crop_im_arr_arr_list(self):
         base_name = os.path.basename(self.vid)
-        self.crop_file_path = find_crop_path(base_name, self.crop_txt_files) #these will be None if no crop/nose files exist so far for this video
+        self.crop_file_path = find_crop_path(base_name,
+                                             self.crop_txt_files)  # these will be None if no crop/nose files exist so far for this video
         self.nose_file_path = find_crop_path(base_name, self.nose_txt_files)
         crop_read_arr = self.make_read_arr(open(
             self.crop_file_path)) if self.crop_file_path else None
         nose_read_arr = self.make_read_arr(open(
             self.nose_file_path)) if self.nose_file_path else None
 
-        if crop_read_arr and nose_read_arr: #in case crop and nose files don't exist yet, we don't go in here
+        if crop_read_arr and nose_read_arr:  # in case crop and nose files don't exist yet, we don't go in here
             original_crop_coords = self.find_im_bb(crop_read_arr,
                                                    nose_read_arr)
 
             if not original_crop_coords:
                 original_crop_coords = [None, None, None, None, 1]
-        else: #so crop coords will be this lel
+        else:  # so crop coords will be this lel
             original_crop_coords = [None, None, None, None, 1]
 
         return original_crop_coords

@@ -46,31 +46,25 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs =
 
     #try on images
     subprocess.run(
-        ['ionice','-c2','-n5',
+        ['ionice','-c2','-n2',
          executable,'-fdir',os.path.join(im_dir,'frames'),  '-of', 'au.csv', '-out_dir', im_dir,
          '-wild','-multi_view', '1'],
-        # 'ionice -c2 -n7 {0} -fdir {1} -of {2} -out_dir {3} -wild -multi-view 1'.format(
-        #     executable, os.path.join(im_dir, 'frames'),
-        #     'au.csv', im_dir)
         check = True
         )
-
-    # fin = open('openface_output_verbose.txt', 'r')
-    # print(fin.read(), end = "")
-    # fin.close()
 
     vid_name = os.path.basename(im_dir).replace('_cropped', '')
     vid_name_parts = vid_name.split('_')
     patient_name = vid_name_parts[0]
     sess_num = vid_name_parts[1]
     vid_num = vid_name_parts[2]
-    #this cleans the csv (unnecessary spaces and adds patietn/session/vid  columns
+    # this cleans the csv (unnecessary spaces and adds patietn/session/vid columns
     if 'au.csv' in os.listdir(im_dir):
         au_dataframe = df.read_csv(os.path.join(im_dir, 'au.csv'))
         # sLength = len(au_dataframe['frame'])
         au_dataframe = au_dataframe.assign(patient=lambda x: patient_name)
         au_dataframe = au_dataframe.assign(session=lambda x: sess_num)
         au_dataframe = au_dataframe.assign(video=lambda x: vid_num)
+        au_dataframe[' success'] = au_dataframe[' confidence'] > .75  # set the limit for what we count as success higher
         au_dataframe = au_dataframe.compute()
         new_colnames = []
 
@@ -92,6 +86,7 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs =
         # new: also remove au_aligned and .hog file
         shutil.rmtree(os.path.join(im_dir,'au_aligned'))
         os.remove(os.path.join(im_dir,'au.hog'))
+        os.remove(os.path.join(im_dir,'au.csv'))
 
 
     return out_name

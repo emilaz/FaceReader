@@ -35,7 +35,7 @@ def find_scores(patient_dir: str, refresh: bool):
     :param patient_dir: Directory to look in
     """
 
-    if not refresh and 'au_w_anno.hdf' in os.listdir(os.path.join(patient_dir,'hdfs')):
+    if not refresh and 'au_w_anno.hdf' in os.listdir(os.path.join(patient_dir, 'hdfs')):
         return
 
     try:
@@ -48,29 +48,29 @@ def find_scores(patient_dir: str, refresh: bool):
             return
 
         # except ValueError as e:
-            # print(e)
+        # print(e)
 
-            # return
+        # return
 
         if 'frame' not in au_frame.columns:
             return
 
         annotated_values = ["N/A" for _ in range(len(au_frame.index))]
 
-        #here are the hand annotations
-        csv_path = os.path.join('/home/emil/emotion_annotations',patient_dir.replace('cropped','emotions.csv'))
+        # here are the hand annotations
+        csv_path = os.path.join('/home/emil/emotion_annotations', patient_dir.replace('cropped', 'emotions.csv'))
         num_frames = int(
-            #VidCropper.duration(get_vid_from_dir(patient_dir)) * 30) #this is the length of orig video
-            VidCropper.duration(os.path.join(patient_dir,'au.avi')) * 30)  # this is the length of au video (should be 1 frame less than orig
-
+            # VidCropper.duration(get_vid_from_dir(patient_dir)) * 30) #this is the length of orig video
+            VidCropper.duration(os.path.join(patient_dir,
+                                             'au.avi')) * 30)  # this is the length of au video (should be 1 frame less than orig
 
         if os.path.exists(csv_path):
             csv_dict = AUGui.csv_emotion_reader(csv_path)
 
             if csv_dict:
                 annotated_ratio = int(num_frames / len(csv_dict))
-                if annotated_ratio>1:
-                    print('HELLO HERE IS SUCH A CASE:',patient_dir)
+                if annotated_ratio > 1:
+                    print('HELLO HERE IS SUCH A CASE:', patient_dir)
                 if annotated_ratio == 0:
                     annotated_ratio = 1
                 csv_dict = {
@@ -80,20 +80,20 @@ def find_scores(patient_dir: str, refresh: bool):
                 }
 
                 for i in [
-                        x for x in csv_dict.keys() if 'None' not in csv_dict[x]
+                    x for x in csv_dict.keys() if 'None' not in csv_dict[x]
                 ]:
-                        to_write = clean_to_write(csv_dict[i])
+                    to_write = clean_to_write(csv_dict[i])
 
-                        if i in range(len(annotated_values)):
-                            annotated_values[i] = to_write
+                    if i in range(len(annotated_values)):
+                        annotated_values[i] = to_write
         # au_frame = au_frame.assign(annotated=annotated_values)
         # au_frame = au_frame.set_index('frame')
         # au_frame["annotated"] = df.from_array(da.from_array(annotated_values, chunks=5))
         annotated_values = da.from_array(annotated_values, chunks='auto').compute()
 
-        #what we know: au_frame['frame'] starts at 1, goes to (including) 3604
-        #annotated_values has length we want, but currently (with the +1) a length of 3605
-        #au_frame has a length of 3604 (makes sense, 1-3604)
+        # what we know: au_frame['frame'] starts at 1, goes to (including) 3604
+        # annotated_values has length we want, but currently (with the +1) a length of 3605
+        # au_frame has a length of 3604 (makes sense, 1-3604)
 
         au_frame = au_frame.compute()
         au_frame = au_frame.assign(annotated=lambda x: annotated_values[x['frame'] - 1])
@@ -130,9 +130,9 @@ if __name__ == '__main__':
     # Directories have been previously cropped by CropAndOpenFace
     PATIENT_DIRS = [
         x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)
-                                            and 'au_w_anno.hdf' not in os.listdir(os.path.join(x,'hdfs'))
+                                            and 'au_w_anno.hdf' not in os.listdir(os.path.join(x, 'hdfs'))
     ]
-    #this gets their names_sess_vid, no path or extension or anything.
+    # this gets their names_sess_vid, no path or extension or anything.
     PATIENTS = get_patient_names(PATIENT_DIRS)
 
     # find_one_patient_scores(PATIENT_DIRS,refresh,(0,PATIENTS[0]))
@@ -145,5 +145,5 @@ if __name__ == '__main__':
 
     # Pool().map(find_scores, PATIENTS)
     # for i, x in enumerate(PATIENTS):
-        # tuple_patient = (i % cpu_count(), x)
-        # find_one_patient_scores(PATIENT_DIRS, tuple_patient)
+    # tuple_patient = (i % cpu_count(), x)
+    # find_one_patient_scores(PATIENT_DIRS, tuple_patient)
