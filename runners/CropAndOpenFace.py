@@ -17,7 +17,7 @@ import ImageCropper
 import VidCropper
 
 
-def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs = True) -> str:
+def run_open_face(im_dir, vid_mode=False, remove_intermediates=True) -> str:
     """
     Runs OpenFace
 
@@ -44,11 +44,12 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=True, from_imgs =
         out_name = 'out.avi'
 
 
-    #try on images
+    # try on images
     subprocess.run(
         ['ionice','-c2','-n2',
          executable,'-fdir',os.path.join(im_dir,'frames'),  '-of', 'au.csv', '-out_dir', im_dir,
          '-wild','-multi_view', '1'],
+        stdout=subprocess.DEVNULL,
         check = True
         )
 

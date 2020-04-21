@@ -33,12 +33,11 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
     if not os.path.exists(img_path):
         os.mkdir(img_path)
 
-    print('in crop func:', subprocess.run(['ffmpeg', '-version'], check=True, stdout=subprocess.PIPE))
     # this crops the video
     crop_vid = os.path.join(directory, 'cropped_out.avi')
     subprocess.run(
         [
-            "ionice", "-c2", "-n2",
+            "ionice", "-c2", "-n6",
             "ffmpeg", "-y", "-loglevel", "quiet", "-i", vid, "-vf",
             "crop={0}:{1}:{2}:{3}".format(str(width), str(height), str(x_min), str(y_min)),
             "-c:a", "copy",
@@ -48,7 +47,7 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
 
     # this scales, then converts to frames to use OpenFace on
     subprocess.run(
-        ['ionice', '-c2', '-n2',
+        ['ionice', '-c2', '-n6',
          'ffmpeg', "-y", "-loglevel", "quiet",
          '-i', crop_vid, '-vf', 'scale={0}*iw:{0}*ih'.format(str(resize_factor)),
          '-c:a', 'copy', os.path.join(img_path, '%04d.bmp')], check=True)
