@@ -224,10 +224,10 @@ def load_patient(patient_dir):
         curr_df = curr_df[curr_df['success'] == 1]
 
         if len(curr_df) and 'annotated' in curr_df.columns and 'frame' in curr_df.columns:
-            print(patient_dir, 'der hier hat k1 annotated column iwie?')
             return curr_df
 
         else:
+            print(patient_dir, 'der hier hat k1 annotated column iwie?')
             return None
 
     except AttributeError as e:
@@ -328,4 +328,4 @@ if __name__ == '__main__':
             out_file.write(out_q.get())
         out_file.close()
         print('fuer den verein')
-    exit(0)
+    sys.exit(0)

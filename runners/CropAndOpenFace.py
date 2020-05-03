@@ -11,56 +11,77 @@ import os
 import subprocess
 import sys
 from dask import dataframe as df
-import pandas as pd
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import ImageCropper
 import VidCropper
+from multiprocessing import Pool
 
 
-def run_open_face(im_dir, vid_mode=False, remove_intermediates=True) -> str:
+def run_open_face(im_dirs, remove_intermediates=True) -> str:
     """
     Runs OpenFace
-
-    :param im_dir: Location of images if not in video mode, location of video if in video mode
-    :param vid_mode: Whether or not to be in video mode (alternative is to run on an image sequence)
+    :param im_dirs: List of locations of images
     :param remove_intermediates: Whether or not to remove intermediate files
-    :param from_imgs: By Emil. When we converted the videos to images beforehand (to avoid frame dropping)
-    :return: Name of output video produced by OpenFace (with landmarks)
-
+    :return: void
     """
     executable = '/home/emil/OpenFace/build/bin/FeatureExtraction'  # Change to location of OpenFace
+    temporary_result_folder = 'temporary'
+    if not os.path.exists(temporary_result_folder):
+        os.mkdir(temporary_result_folder)
 
-    if not vid_mode:
-        subprocess.Popen(
-            "ffmpeg -y -r 30 -f image2 -pattern_type glob -i '{0}' -b:v 7000k {1}"
-            .format(
-                os.path.join(im_dir, '*.png'),
-                os.path.join(im_dir, 'inter_out.mp4')),
-            shell=True).wait()
-        vid_name = 'inter_out.mp4'
-        out_name = 'out.mp4'
-    else:
-        vid_name = 'inter_out.avi'
-        out_name = 'out.avi'
-
-
+    zipped = zip(['-fdir']*len(im_dirs),im_dirs)
+    ready_for_command = [el for z in zipped for el in z]
     # try on images
     subprocess.run(
         ['ionice','-c2','-n2',
-         executable,'-fdir',os.path.join(im_dir,'frames'),  '-of', 'au.csv', '-out_dir', im_dir,
+         executable, *ready_for_command,
+         '-simsize', '5',
+         #'-fdir',
+         #os.path.join(im_dir,'frames'),
+         #'-of', 'au.csv', '-out_dir', im_dir,
+         '-out_dir', temporary_result_folder,
          '-wild','-multi_view', '1'],
-        stdout=subprocess.DEVNULL,
+        # stdout=subprocess.DEVNULL,
         check = True
         )
 
-    vid_name = os.path.basename(im_dir).replace('_cropped', '')
+    if remove_intermediates:  # first step of removing intermediates
+        for aligned in glob.glob(temporary_result_folder+'/*_aligned'):
+            shutil.rmtree(aligned)
+        for hog in glob.glob(temporary_result_folder+'/*hog'):
+            os.remove(hog)
+        for details in glob.glob(temporary_result_folder+'/*_details.txt'):
+            os.remove(details)
+
+        # new: also remove au_aligned and .hog file
+        # shutil.rmtree(os.path.join(im_dir,'au_aligned'))
+        # os.remove(os.path.join(im_dir,'au.hog'))
+        # os.remove(os.path.join(im_dir,'au_of_details.txt'))
+        # os.remove(os.path.join(im_dir,'au.csv'))
+
+    args = zip(im_dirs, [temporary_result_folder] * len(im_dirs))
+    pool = Pool(8)
+    pool.starmap(move_and_clean, args)
+
+
+
+
+def move_and_clean(im_dir, temporary_result_folder):
+    # first, delete all those pics here
+    for pic in glob.glob(im_dir + '/*.png'):
+        os.remove(pic)
+
+    file_name = os.path.basename(im_dir)
+    vid_name = file_name.replace('_cropped', '')
     vid_name_parts = vid_name.split('_')
     patient_name = vid_name_parts[0]
     sess_num = vid_name_parts[1]
     vid_num = vid_name_parts[2]
+    #move things from processed folder to where they need to be
+    for file in glob.glob(os.path.join(temporary_result_folder,vid_name+'*')):
+        shutil.move(file, im_dir)
     # this cleans the csv (unnecessary spaces and adds patietn/session/vid columns
-    if 'au.csv' in os.listdir(im_dir):
-        au_dataframe = df.read_csv(os.path.join(im_dir, 'au.csv'))
+    if file_name+'.csv' in os.listdir(im_dir):
+        au_dataframe = df.read_csv(os.path.join(im_dir, file_name+'.csv'))
         # sLength = len(au_dataframe['frame'])
         au_dataframe = au_dataframe.assign(patient=lambda x: patient_name)
         au_dataframe = au_dataframe.assign(session=lambda x: sess_num)
@@ -80,28 +101,20 @@ def run_open_face(im_dir, vid_mode=False, remove_intermediates=True) -> str:
             os.mkdir(df_dir)
         au_dataframe.to_hdf(os.path.join(df_dir, 'au.hdf'),key= '/data', format='table')
         # df.read_hdf(os.path.join(df_dir, 'au_0.hdf'), '/data') # assert saved correctly
+        os.remove(os.path.join(im_dir, file_name+'.csv'))
 
-    if remove_intermediates:
-        #os.remove(os.path.join(im_dir, vid_name))
-        shutil.rmtree(os.path.join(im_dir,'frames'))
-        # new: also remove au_aligned and .hog file
-        shutil.rmtree(os.path.join(im_dir,'au_aligned'))
-        os.remove(os.path.join(im_dir,'au.hog'))
-        os.remove(os.path.join(im_dir,'au.csv'))
-
-
-    return out_name
 
 
 class VideoImageCropper:
+
     def __init__(self,
                  vid=None,
                  im_dir=None,
                  already_cropped=None,
                  already_detected=None,
                  crop_txt_files=None,
-                 nose_txt_files=None,
-                 vid_mode=False):
+                 nose_txt_files=None):
+
         self.already_cropped = already_cropped
         self.already_detected = already_detected
         self.im_dir = im_dir
@@ -134,26 +147,8 @@ class VideoImageCropper:
             if not os.path.lexists(self.im_dir):
                 os.mkdir(self.im_dir)
 
-        if not vid_mode:
-            subprocess.Popen(
-                'ffmpeg -y -i "{0}" -vf fps=30 "{1}"'.format(
-                    vid,
-                    os.path.join(self.im_dir,
-                                 (os.path.basename(vid) + '_out%04d.png'))),
-                shell=True).wait()
-            ImageCropper.CropImages(
-                self.im_dir,
-                self.crop_txt_files,
-                self.nose_txt_files,
-                save=True)
-
-            if len(glob.glob(os.path.join(self.im_dir, '*.png'))) > 0:
-                if not self.already_detected:
-                    run_open_face(self.im_dir)
-        else:
-            VidCropper.CropVid(vid, self.im_dir, self.crop_txt_files,
-                               self.nose_txt_files)
-            run_open_face(self.im_dir, vid_mode=True)
+        VidCropper.CropVid(vid, self.im_dir, self.crop_txt_files,
+                           self.nose_txt_files)
 
 
 def find_txt_files(path):
@@ -166,7 +161,6 @@ def find_txt_files(path):
 
 if __name__ == '__main__':
     vid = None
-
     if '-v' in sys.argv:
         vid = sys.argv[sys.argv.index('-v') + 1]
     crop_path = sys.argv[sys.argv.index('-c') + 1]
@@ -184,5 +178,4 @@ if __name__ == '__main__':
         crop_path,
         nose_path,
         already_cropped,
-        already_detected,
-        vid_mode=True)
+        already_detected)

@@ -29,38 +29,39 @@ def crop_and_resize(vid, width, height, x_min, y_min, directory,
     :param resize_factor: Factor by which to resize the cropped video
     """
 
-    img_path = os.path.join(directory, 'frames')
-    if not os.path.exists(img_path):
-        os.mkdir(img_path)
+    # img_path = os.path.join(directory, 'frames')
+    # if not os.path.exists(img_path):
+    #     os.mkdir(img_path)
 
     # this crops the video
-    crop_vid = os.path.join(directory, 'cropped_out.avi')
-    subprocess.run(
-        [
-            "ionice", "-c2", "-n6",
-            "ffmpeg", "-y", "-loglevel", "quiet", "-i", vid, "-vf",
-            "crop={0}:{1}:{2}:{3}".format(str(width), str(height), str(x_min), str(y_min)),
-            "-c:a", "copy",
-            crop_vid], check=True
-    )
-
-
-    # this scales, then converts to frames to use OpenFace on
-    subprocess.run(
-        ['ionice', '-c2', '-n6',
-         'ffmpeg', "-y", "-loglevel", "quiet",
-         '-i', crop_vid, '-vf', 'scale={0}*iw:{0}*ih'.format(str(resize_factor)),
-         '-c:a', 'copy', os.path.join(img_path, '%04d.bmp')], check=True)
-
-    os.remove(os.path.join(directory, 'cropped_out.avi'))
-
-
-    # ### new method
+    # crop_vid = os.path.join(directory, 'cropped_out.avi')
+    # subprocess.run(
+    #     [
+    #         "ionice", "-c2", "-n2",
+    #         "ffmpeg", "-y", "-loglevel", "quiet", "-i", vid, "-vf",
+    #         "crop={0}:{1}:{2}:{3}".format(str(width), str(height), str(x_min), str(y_min)),
+    #         "-c:a", "copy",
+    #         crop_vid], check=True
+    # )
+    #
+    #
+    # # this scales, then converts to frames to use OpenFace on
     # subprocess.run(
     #     ['ionice', '-c2', '-n2',
-    #      'ffmpeg', "-y", #"-loglevel", "quiet",
-    #      '-i', vid, '-vf', "crop={0}:{1}:{2}:{3}, scale={4}*iw:{4}*ih".format(str(width), str(height), str(x_min), str(y_min), str(resize_factor)),
-    #      '-c:a', 'copy', os.path.join(img_path, '%04d.bmp')], check=True)
+    #      'ffmpeg', "-y", "-loglevel", "quiet",
+    #      '-i', crop_vid, '-vf', 'scale={0}*iw:{0}*ih'.format(str(resize_factor)),
+    #      # '-c:a', 'copy', os.path.join(img_path, '%04d.png')], check=True)
+    #      '-c:a', 'copy', os.path.join(directory, '%04d.png')], check=True)
+    #
+    # os.remove(os.path.join(directory, 'cropped_out.avi'))
+
+
+    ### new method
+    subprocess.run(
+        ['ionice', '-c2', '-n2',
+         'ffmpeg', "-y", "-loglevel", "quiet",
+         '-i', vid, '-vf', "crop={0}:{1}:{2}:{3}, scale={4}*iw:{4}*ih".format(str(width), str(height), str(x_min), str(y_min), str(resize_factor)),
+         '-c:a', 'copy', os.path.join(directory, '%04d.png')], check=True)
 
 
 

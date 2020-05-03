@@ -29,8 +29,7 @@ def try_cropping(vid, im_dir):
             vid=vid,
             im_dir=im_dir,
             crop_txt_files=crop_txt_files,
-            nose_txt_files=nose_txt_files,
-            vid_mode=True)
+            nose_txt_files=nose_txt_files)
     except DurationException as e:
         print(str(e) + '\t' + vid)
 

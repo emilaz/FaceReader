@@ -62,7 +62,7 @@ def find_scores(patient_dir: str, refresh: bool):
         num_frames = int(
             # VidCropper.duration(get_vid_from_dir(patient_dir)) * 30) #this is the length of orig video
             VidCropper.duration(os.path.join(patient_dir,
-                                             'au.avi')) * 30)  # this is the length of au video (should be 1 frame less than orig
+                                             patient_dir+'.avi')) * 30)  # this is the length of au video (should be 1 frame less than orig
 
         if os.path.exists(csv_path):
             csv_dict = AUGui.csv_emotion_reader(csv_path)
@@ -71,6 +71,8 @@ def find_scores(patient_dir: str, refresh: bool):
                 annotated_ratio = int(num_frames / len(csv_dict))
                 if annotated_ratio > 1:
                     print('HELLO HERE IS SUCH A CASE:', patient_dir)
+                    print('num_frames:', num_frames)
+                    print('len of annots:', len(csv_dict))
                 if annotated_ratio == 0:
                     annotated_ratio = 1
                 csv_dict = {

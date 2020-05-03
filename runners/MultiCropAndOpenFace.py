@@ -11,10 +11,9 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import CropAndOpenFace
 from VidCropper import DurationException, duration
-from timeit import default_timer as timer
 from multiprocessing import Pool
 
-def make_vids(input_path, output_path, emotions = True):
+def make_vids(input_path, output_path, emotions = False):
     """
     Return list of vids not processed yet given a path.
     NEW: Also return only those that have emotions file
@@ -24,8 +23,8 @@ def make_vids(input_path, output_path, emotions = True):
     """
     folder_components = set(os.path.join(output_path, x) for x in os.listdir(output_path))
 
-    #this is to find all .avi videos that are in the given input dir, even recursively
-    #might not always be needed (somewhat time consuming)
+    # this is to find all .avi videos that are in the given input dir, even recursively
+    # might not always be needed (somewhat time consuming)
     paths = []
     for root, dirs, files in os.walk(input_path):
         for file in files:
@@ -53,22 +52,21 @@ def make_vids(input_path, output_path, emotions = True):
                     to_process.append(p)
 
     # new and only because of porting from cylon to salarian! Don't want to rerun or move these files
-    # try:
-    #     already_processed = []
-    #     with open('/home/emil/processed_so_far') as f:
-    #         for line in f:
-    #             curr_line = line.strip()
-    #             patient = curr_line.split('_')[0]
-    #             pat_sess = '_'.join(curr_line.split('_')[:2])
-    #             already_processed.append(os.path.join('/nas/ecog_project/video',patient,pat_sess, curr_line+'.avi'))
-    #     # so unfortunately, they are missing to absolute path. Adding here.
-    #     to_process_filtered = [p for p in to_process if p not in already_processed]
-    #     print('Down from {} videos to {} videos'.format(len(to_process), len(to_process_filtered)))
-    # except FileNotFoundError as e:
-    #     print('No file containing already processed files found. Are you sure you want to this ?')
-    # return to_process_filtered
-
-    return to_process
+    try:
+        already_processed = []
+        with open('/home/emil/processed_so_far') as f:
+            for line in f:
+                curr_line = line.strip()
+                patient = curr_line.split('_')[0]
+                pat_sess = '_'.join(curr_line.split('_')[:2])
+                already_processed.append(os.path.join('/nas/ecog_project/video',patient,pat_sess, curr_line+'.avi'))
+        # so unfortunately, they are missing to absolute path. Adding here.
+        to_process_filtered = [p for p in to_process if p not in already_processed]
+        print('Down from {} videos to {} videos'.format(len(to_process), len(to_process_filtered)))
+        return to_process_filtered
+    except FileNotFoundError as e:
+        print('No file containing already processed files found. Are you sure you want to this ?')
+        return to_process
 
 # These are just a collection of patient_day_vid key and ACTUAL crop file path as value, so a lookup dictionary
 def make_crop_and_nose_files(path):
@@ -88,30 +86,40 @@ def make_crop_and_nose_files(path):
     return json.load(open(crop_file)), json.load(open(nose_file))
 
 
-def crop_and_openface(vid):
+def crop(vid):
     im_dir = os.path.join(output_path,os.path.splitext(vid)[0].split('/')[-1] + '_cropped')
+    # for idx, vid in tqdm(enumerate(vids)):  # this sequentially bc ffmpeg is an absolute pain in the ass wrt I/O load
     try:
         duration(vid)
         CropAndOpenFace.VideoImageCropper(
             vid=vid,
             im_dir=im_dir,
             crop_txt_files=crop_txt_files,
-            nose_txt_files=nose_txt_files,
-            vid_mode=True)
+            nose_txt_files=nose_txt_files)
     except DurationException as e:
         print(str(e) + '\t' + vid)
+
+
 
 if __name__ == '__main__':
     input_path = sys.argv[sys.argv.index('-id') + 1]
     output_path = sys.argv[sys.argv.index('-od') + 1]
 
     vids = make_vids(input_path,output_path)
-    # new
     crop_txt_files, nose_txt_files = make_crop_and_nose_files(output_path)
     os.chdir(output_path)
+    # into chunks
+    chunks = []
+    chunk_size = 20
+    for i in range(0, len(vids), chunk_size):
+        chunks.append(vids[i:i + chunk_size])
     # pool = Pool(8)
     # pool.map(crop_and_openface,vids)
-    with Pool(8) as p:
-        test = list(tqdm(p.imap(crop_and_openface,vids), total=len(vids)))
+
+    for chunk in tqdm(chunks):  # we don't have enough memory. hence do the following in chunks
+        with Pool(8) as p:
+            test = list(tqdm(p.imap(crop, chunk), total=len(chunk)))  # create the frames for openface via multiproc
+        im_dirs = [os.path.join(output_path, os.path.splitext(vid)[0].split('/')[-1] + '_cropped') for vid in chunk]
+        CropAndOpenFace.run_open_face(im_dirs)  # run openface on it
 
     sys.exit(0)
