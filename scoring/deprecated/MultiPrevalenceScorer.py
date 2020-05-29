@@ -19,10 +19,9 @@ from pathos.multiprocessing import ProcessingPool as Pool
 
 sys.path.append(os.path.basename(os.path.abspath(__file__)))
 
-import AUGui
-from scoring.AUScorer import make_frame_emotions
-from scoring import AUScorer
-from helpers.SecondRunHelper import process_eyebrows, get_vid_from_dir
+from datavis import AUGui
+from scoring.deprecated.AUScorer import make_frame_emotions
+from scoring.deprecated import AUScorer
 from runners import VidCropper
 
 

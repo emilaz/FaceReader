@@ -6,7 +6,6 @@ import os
 
 from collections import defaultdict
 
-import joblib
 import numpy as np
 from numpy import mean
 from progressbar import ProgressBar
@@ -15,7 +14,7 @@ from sklearn.metrics import precision_score, recall_score
 
 sys.path.append('/home/gvelchuru/OpenFaceScripts')
 from datavis.ml_pr_vis import make_scores_file, clean_csv, make_emotion_data
-from scoring.AUScorer import emotion_list
+from scoring.deprecated.AUScorer import emotion_list
 
 
 # import models.tpot

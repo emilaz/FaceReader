@@ -7,7 +7,6 @@
 
 import argparse
 import multiprocessing
-import dask
 import os
 import gc
 import glob
@@ -224,10 +223,12 @@ def load_patient(patient_dir):
         curr_df = curr_df[curr_df['success'] == 1]
 
         if len(curr_df) and 'annotated' in curr_df.columns and 'frame' in curr_df.columns:
+            # print(patient_dir, 'der hier hat')
             return curr_df
 
         else:
-            print(patient_dir, 'der hier hat k1 annotated column iwie?')
+            print('Current df for patient {} has either no length (length {}), no annotations,'
+                               'no frame column or no successful detections.'.format(patient_dir, len(curr_df)))
             return None
 
     except AttributeError as e:
@@ -275,27 +276,10 @@ if __name__ == '__main__':
                                                 and 'au_w_anno.hdf' in os.listdir(os.path.join(x,'hdfs'))
             # and leave_out not in x #this is for leaving out 1 patient
         ]
-        ### old method
-        # dfs = []
-        # df = None
-        # patient_queue = multiprocessing.Manager().Queue()
-        # partial_patient_func = functools.partial(load_patient, patient_queue)
-        # max_ = len(PATIENT_DIRS)
-        # with Pool() as p:
-        #     with tqdm(total=max_) as pbar:
-        #         for i, _ in enumerate(p.imap(partial_patient_func, PATIENT_DIRS[:max_], chunksize=100)):
-        #             pbar.update()
 
-        ### new method
         pool = Pool(8)
         res = pool.map(load_patient, PATIENT_DIRS)
-        # results = []
-        # for pat in PATIENT_DIRS:
-        #     res = dask.delayed(load_patient)(pat)
-        #     results.append(res)
-        #
-        # res = dask.compute(*results)
-        print('filter nons')
+        print('filter nans')
         new_res = [r for r in res if r is not None]
         print(len(new_res), len(res))
         print('now concat')

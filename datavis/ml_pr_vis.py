@@ -9,7 +9,6 @@ import sys
 import os
 
 from sklearn.model_selection import train_test_split
-import progressbar
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -17,7 +16,7 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier
 from sklearn.metrics import precision_recall_curve
 
-from scoring import AUScorer
+from scoring.deprecated import AUScorer
 
 import multiprocessing
 import numpy as np

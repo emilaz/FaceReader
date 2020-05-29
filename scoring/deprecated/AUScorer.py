@@ -13,7 +13,7 @@ import numpy as np
 sys.path.append(
     os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from OpenFaceScripts.scoring import OpenFaceScorer
+from scoring.deprecated import OpenFaceScorer
 
 AUList = [
     '1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', '20',

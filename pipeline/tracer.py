@@ -4,7 +4,6 @@ import sys
 import numpy as np
 import matplotlib
 from OpenFaceScripts.runners.VidCropper import duration
-from runners.SecondRunOpenFace import get_vid_from_dir
 from sklearn.externals import joblib
 
 matplotlib.use("Agg")

@@ -2,15 +2,13 @@ import functools
 import glob
 import json
 import sys
-from scoring import AUScorer
+from scoring.deprecated import AUScorer
 
 import multiprocessing
 import numpy as np
 import os
-import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from collections import defaultdict
 

@@ -8,14 +8,27 @@ import functools
 import sys
 import os
 from helpers.patient_info import patient_day_session, get_patient_names
-from runners import VidCropper
-import AUGui
 
 """
 .. module:: AUvsEmotionGenerator
     :synopsis: Appends classified emotion to AU dataframe
 """
 
+# csv_reader, from XMLTransformer
+def csv_emotion_reader(csv_path):
+    """
+    Reads emotions from csv file.
+
+    :param csv_path: Path to csv file.
+    :return: Dictionary mapping filenames (from csv) to emotions labelled in filename.
+    """
+    with open(csv_path, 'rt') as csv_file:
+        image_map = {
+            index - 1: row[1]
+            for index, row in enumerate(csv.reader(csv_file)) if index != 0
+        }  # index -1 to compensate for first row offset
+
+    return image_map
 
 def clean_to_write(to_write: str) -> str:
     if to_write == 'Surprised':
@@ -59,13 +72,17 @@ def find_scores(patient_dir: str, refresh: bool):
 
         # here are the hand annotations
         csv_path = os.path.join('/home/emil/emotion_annotations', patient_dir.replace('cropped', 'emotions.csv'))
-        num_frames = int(
-            # VidCropper.duration(get_vid_from_dir(patient_dir)) * 30) #this is the length of orig video
-            VidCropper.duration(os.path.join(patient_dir,
-                                             patient_dir+'.avi')) * 30)  # this is the length of au video (should be 1 frame less than orig
 
+        # video length is the same as length of the corresponding AU file
+        num_frames = len(annotated_values)
+        if num_frames != len(au_frame):
+            print('this is wrong')
+            print(num_frames)
+            print(len(au_frame))
+            exit()
+        #find annotations, if exist. Else just leave the nans
         if os.path.exists(csv_path):
-            csv_dict = AUGui.csv_emotion_reader(csv_path)
+            csv_dict = csv_emotion_reader(csv_path)
 
             if csv_dict:
                 annotated_ratio = int(num_frames / len(csv_dict))
@@ -130,10 +147,15 @@ if __name__ == '__main__':
     refresh = '--refresh' in sys.argv
     os.chdir(OPEN_DIR)
     # Directories have been previously cropped by CropAndOpenFace
-    PATIENT_DIRS = [
+    if not refresh:
+        PATIENT_DIRS = [
         x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)
                                             and 'au_w_anno.hdf' not in os.listdir(os.path.join(x, 'hdfs'))
-    ]
+        ]
+    else:
+        PATIENT_DIRS = [
+        x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)
+        ]
     # this gets their names_sess_vid, no path or extension or anything.
     PATIENTS = get_patient_names(PATIENT_DIRS)
 

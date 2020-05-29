@@ -1,4 +1,3 @@
-import joblib
 import numpy as np
 import os
 import sys
@@ -12,12 +11,11 @@ from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
 from ConfigSpace.conditions import InCondition
 
 # Import SMAC-utilities
-from smac.tae.execute_func import ExecuteTAFuncDict
 from smac.scenario.scenario import Scenario
 from smac.facade.smac_facade import SMAC
 
 sys.path.append('/home/gvelchuru/OpenFaceScripts')
-from scoring.AUScorer import emotion_list
+from scoring.deprecated.AUScorer import emotion_list
 from scoring.EmotionPredictor import make_emotion_data
 
 from pathos.multiprocessing import ProcessingPool as Pool

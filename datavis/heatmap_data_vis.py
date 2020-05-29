@@ -12,15 +12,15 @@ import sys
 import progressbar
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import AUGui
+from datavis import AUGui
 import functools
-from scoring import AUScorer
+from scoring.deprecated import AUScorer
 import numpy as np
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm, Colormap, LinearSegmentedColormap
-from matplotlib.ticker import LogLocator, AutoLocator
+from matplotlib.colors import LogNorm
+from matplotlib.ticker import LogLocator
 
 import seaborn as sns
 
