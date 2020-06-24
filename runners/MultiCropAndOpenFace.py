@@ -9,9 +9,11 @@ import os
 from tqdm import tqdm
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import pandas as pd
 import CropAndOpenFace
 from VidCropper import DurationException, duration
 from multiprocessing import Pool
+from datetime import datetime
 
 def make_vids(input_path, output_path, emotions = False):
     """
@@ -31,7 +33,7 @@ def make_vids(input_path, output_path, emotions = False):
             if file.endswith(".avi"):
                 paths.append(os.path.join(root, file))
 
-    #this is for processing only those videos we have emotion annotations for
+    # this is for processing only those videos we have emotion annotations for, for classifier training purposes
     to_process = []
     if emotions:
         for p in paths:
@@ -51,22 +53,26 @@ def make_vids(input_path, output_path, emotions = False):
                                      x + '_cropped'))):
                     to_process.append(p)
 
-    # new and only because of porting from cylon to salarian! Don't want to rerun or move these files
-    try:
-        already_processed = []
-        with open('/home/emil/processed_so_far') as f:
-            for line in f:
-                curr_line = line.strip()
-                patient = curr_line.split('_')[0]
-                pat_sess = '_'.join(curr_line.split('_')[:2])
-                already_processed.append(os.path.join('/nas/ecog_project/video',patient,pat_sess, curr_line+'.avi'))
-        # so unfortunately, they are missing to absolute path. Adding here.
-        to_process_filtered = [p for p in to_process if p not in already_processed]
-        print('Down from {} videos to {} videos'.format(len(to_process), len(to_process_filtered)))
-        return to_process_filtered
-    except FileNotFoundError as e:
-        print('No file containing already processed files found. Are you sure you want to this ?')
-        return to_process
+    # this is optional, but I'm not using the videos from 11PM-7AM anyways, so I won't process those
+    # get time for each vid
+    patient = os.path.basename(to_process[0]).split('_')[0]
+    time_path = os.path.join('/nas/ecog_project/derived/processed_ecog/',
+                             patient, 'full_day_ecog/vid_start_end_merge.csv')
+    times = pd.read_csv(time_path)
+    to_process_time_filtered = []
+    print("I'm about to filter everything that's not from 7AM-23PM. You sure you want that?")
+    for p in to_process:
+        curr_time = times[times['filename']==os.path.basename(p)]
+        if len(curr_time) == 0:  # quickfix for bug on vid start time file creation
+            continue
+        if  23  > curr_time['hour'].iloc[0] > 6:  # add everything that is between 7-23
+            to_process_time_filtered.append(p)
+        elif 23 == curr_time['hour'].iloc[0] and curr_time['minute'].iloc[0] <= 5:  # edge cases
+            to_process_time_filtered.append(p)
+        elif curr_time['hour'].iloc[0] == 6 and curr_time['minute'].iloc[0] >= 55:
+            to_process_time_filtered.append(p)
+
+    return to_process_time_filtered
 
 # These are just a collection of patient_day_vid key and ACTUAL crop file path as value, so a lookup dictionary
 def make_crop_and_nose_files(path):

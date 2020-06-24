@@ -8,6 +8,7 @@ import functools
 import sys
 import os
 from helpers.patient_info import patient_day_session, get_patient_names
+import csv
 
 """
 .. module:: AUvsEmotionGenerator
@@ -41,7 +42,7 @@ def clean_to_write(to_write: str) -> str:
     return to_write
 
 
-def find_scores(patient_dir: str, refresh: bool):
+def find_scores(patient_dir: str, refresh=True):
     """
     Finds the scores for a specific patient directory
 
@@ -156,15 +157,14 @@ if __name__ == '__main__':
         PATIENT_DIRS = [
         x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)
         ]
-    # this gets their names_sess_vid, no path or extension or anything.
-    PATIENTS = get_patient_names(PATIENT_DIRS)
-
-    # find_one_patient_scores(PATIENT_DIRS,refresh,(0,PATIENTS[0]))
-
+    with Pool(8) as p:
+        _ = list(tqdm(p.imap(find_scores, PATIENT_DIRS), total = len(PATIENT_DIRS)))
     ######
-    PARTIAL_FIND_FUNC = functools.partial(find_one_patient_scores, PATIENT_DIRS, refresh)
-    TUPLE_PATIENTS = [((i % 5), x) for i, x in enumerate(PATIENTS)]
-    Pool(5).map(PARTIAL_FIND_FUNC, TUPLE_PATIENTS)
+    # this gets their names_sess_vid, no path or extension or anything.
+    # PATIENTS = get_patient_names(PATIENT_DIRS)
+    # PARTIAL_FIND_FUNC = functools.partial(find_one_patient_scores, PATIENT_DIRS, refresh)
+    # TUPLE_PATIENTS = [((i % 5), x) for i, x in enumerate(PATIENTS)]
+    # Pool(5).map(PARTIAL_FIND_FUNC, TUPLE_PATIENTS)
     #######
 
     # Pool().map(find_scores, PATIENTS)
