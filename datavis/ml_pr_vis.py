@@ -16,7 +16,7 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier
 from sklearn.metrics import precision_recall_curve
 
-from scoring.deprecated import AUScorer
+from inference_runners.deprecated import AUScorer
 
 import multiprocessing
 import numpy as np

@@ -9,7 +9,7 @@ from tqdm import tqdm
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import pandas as pd
-# import runners.CropAndOpenFace as CropAndOpenFace
+# import crop_runners.CropAndOpenFace as CropAndOpenFace
 import CropAndOpenFace
 from multiprocessing import Pool
 

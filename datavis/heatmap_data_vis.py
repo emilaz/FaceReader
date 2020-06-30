@@ -14,7 +14,7 @@ import progressbar
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datavis import AUGui
 import functools
-from scoring.deprecated import AUScorer
+from inference_runners.deprecated import AUScorer
 import numpy as np
 
 matplotlib.use('Agg')
@@ -27,7 +27,7 @@ import seaborn as sns
 import multiprocessing
 from pathos.multiprocessing import ProcessingPool as Pool
 
-# from runners import VidCropper, SecondRunOpenFace TODO: Figure out why this
+# from crop_runners import VidCropper, SecondRunOpenFace TODO: Figure out why this
 # won't import
 
 

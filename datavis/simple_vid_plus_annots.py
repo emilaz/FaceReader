@@ -1,4 +1,4 @@
-from pipeline.HappyVidMarker import bar_movie
+from datavis.HappyVidMarker import bar_movie
 import pandas as pd
 import sys
 

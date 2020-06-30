@@ -16,7 +16,7 @@ from wx import media
 from wx.lib.floatcanvas import NavCanvas
 
 sys.path.append(os.path.abspath(__file__))
-from scoring.deprecated import AUScorer, OpenFaceScorer
+from inference_runners.deprecated import AUScorer, OpenFaceScorer
 
 
 class AUGui(wx.Frame):

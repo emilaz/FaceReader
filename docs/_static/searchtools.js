@@ -11,7 +11,7 @@
 
 if (!Scorer) {
   /**
-   * Simple result scoring code.
+   * Simple result inference_runners code.
    */
   var Scorer = {
     // Implement the following function to further tweak the score for each result
@@ -201,7 +201,7 @@ var Search = {
     // lookup as search terms in fulltext
     results = results.concat(this.performTermsSearch(searchterms, excluded, terms, titleterms));
 
-    // let the scorer override scores with a custom scoring function
+    // let the scorer override scores with a custom inference_runners function
     if (Scorer.score) {
       for (i = 0; i < results.length; i++)
         results[i][4] = Scorer.score(results[i]);
