@@ -16,7 +16,7 @@ from dask.distributed import Client
 import glob
 from tqdm import tqdm
 
-from inference_runners.EmotionPredictor import  get_prediction
+from inference_runners.train_classifier import  get_prediction
 
 def predict(df, classifier_function):
     data_columns = [x for x in df.columns if

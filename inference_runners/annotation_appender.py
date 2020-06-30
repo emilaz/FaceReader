@@ -12,7 +12,7 @@ import csv
 
 """
 .. module:: AUvsEmotionGenerator
-    :synopsis: Appends classified emotion to AU dataframe
+    :synopsis: Appends annotated emotion to AU dataframe
 """
 
 # csv_reader, from XMLTransformer
