@@ -296,7 +296,7 @@ class AUGui(wx.Frame):
         """
         Shows entire video, with or without landmarks based on params.
 
-        :requires: Cropped video saved as 'inter_out.mp4' in cwd and cropped video with landmarks saved as 'out.mp4' in cwd (both from CropAndOpenFace).
+        :requires: Cropped video saved as 'inter_out.mp4' in cwd and cropped video with landmarks saved as 'out.mp4' in cwd (both from crop_and_openface).
         :param landmarks: Whether landmarks should be displayed.
         :type landmarks: bool.
         :return: None

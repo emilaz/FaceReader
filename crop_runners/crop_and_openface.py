@@ -1,5 +1,5 @@
 """
-.. module CropAndOpenFace
+.. module crop_and_openface
     :synopsis: Contains a method for running OpenFace on a video directory as well as a class which crops a video and
     runs OpenFace on it
 """

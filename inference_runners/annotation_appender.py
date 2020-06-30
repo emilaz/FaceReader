@@ -147,7 +147,7 @@ if __name__ == '__main__':
     OPEN_DIR = sys.argv[sys.argv.index('-d') + 1]
     refresh = '--refresh' in sys.argv
     os.chdir(OPEN_DIR)
-    # Directories have been previously cropped by CropAndOpenFace
+    # Directories have been previously cropped by crop_and_openface
     if not refresh:
         PATIENT_DIRS = [
         x for x in glob.glob('*cropped') if 'hdfs' in os.listdir(x)

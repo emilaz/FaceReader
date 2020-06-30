@@ -159,24 +159,22 @@ def conf_mat(pred, true, title):
     plt.show()
 
 
-def score_heatmap(pred, true, title):
+def score_heatmap(pred, true, path, title):
     met_dict = metrics.classification_report(true, pred, output_dict=True)
     df = pd.DataFrame(met_dict)
     del df['weighted avg']
-    df.drop(index='support', inplace=True)
     acc = df['accuracy'].values
     del df['accuracy']
-    print(acc)
-    df.loc[len(df)] = [np.nan] * 2 + [acc[0]]
-    df.rename(columns={'macro avg': 'Total', 'False': 'Not happy', 'True': 'Happy'}, index={3: 'accuracy'},
-              inplace=True)
-    plt.figure(figsize=(10, 7))
-    sns.heatmap(df.T, annot=True, cmap='Reds', fmt='g', vmin=0, vmax=1)
+    df.loc[len(df)] = [np.nan]*2+[acc[0]]
+    df.rename(columns={'macro avg':'Total', 0.0:'Not Happy', 1.0:'Happy', '0.0':'Not Happy', '1.0': 'Happy'},
+              index={4:'accuracy'},inplace=True)
+    plt.figure(figsize = (10,7))
+    sns.heatmap((df.T).round(2),annot=True,cmap='Reds', fmt='g', vmin = 0,vmax=1, annot_kws={"size": 22})
     plt.yticks(rotation=0, fontsize="10", va="center")
     plt.title(title)
-    plt.savefig(os.path.join('/home/emil/OpenFaceScripts/images', title))
+    plt.savefig(path + '.png')
     plt.show()
-
+    plt.close()
 
 def make_emotion_data(emotion, df):
     print('Making emotion data...')

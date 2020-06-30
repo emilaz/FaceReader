@@ -462,7 +462,7 @@ if __name__ == '__main__':
     OpenDir = sys.argv[sys.argv.index('-d') + 1]
     os.chdir(OpenDir)
     au_emote_dict = json.load(open('au_emotes.txt'))
-    # Directories have been previously cropped by CropAndOpenFace
+    # Directories have been previously cropped by crop_and_openface
     patient_dirs = glob.glob('*cropped')
     scores = defaultdict()
     scores_file = 'predic_substring_dict.txt'

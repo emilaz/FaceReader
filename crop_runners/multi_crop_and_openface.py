@@ -1,5 +1,5 @@
 """
-.. module MultiCropAndOpenFace
+.. module Multicrop_and_openface
     :synopsis: Script to apply cropping and OpenFace to all videos in a directory.
 
 """
@@ -9,8 +9,8 @@ from tqdm import tqdm
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import pandas as pd
-# import crop_runners.CropAndOpenFace as CropAndOpenFace
-import CropAndOpenFace
+# import crop_runners.crop_and_openface as crop_and_openface
+import crop_and_openface
 from multiprocessing import Pool
 
 def make_vids(input_path, output_path, emotions = False):
@@ -72,38 +72,15 @@ def make_vids(input_path, output_path, emotions = False):
 
     return to_process_time_filtered
 
-# # These are just a collection of patient_day_vid key and ACTUAL crop file path as value, so a lookup dictionary
-# def make_crop_and_nose_files(path):
-#     crop_file = os.path.join(path, 'crop_files_list.txt')
-#     nose_file = os.path.join(path, 'nose_files_list.txt')
-#
-#     if not os.path.exists(crop_file):
-#         crop_path = sys.argv[sys.argv.index('-c') + 1]
-#         crop_txt_files = CropAndOpenFace.find_txt_files(crop_path)
-#         json.dump(crop_txt_files, open(crop_file, mode='w'))
-#
-#     if not os.path.exists(nose_file):
-#         nose_path = sys.argv[sys.argv.index('-n') + 1]
-#         nose_txt_files = CropAndOpenFace.find_txt_files(nose_path)
-#         json.dump(nose_txt_files, open(nose_file, mode='w'))
-#
-#     return json.load(open(crop_file)), json.load(open(nose_file))
-
 
 def crop(vid):
     im_dir = os.path.join(output_path,os.path.splitext(vid)[0].split('/')[-1] + '_cropped')
     if not os.path.exists(im_dir):
         os.mkdir(im_dir)
-    # for idx, vid in tqdm(enumerate(vids)):  # this sequentially bc ffmpeg is an absolute pain in the ass wrt I/O load
     try:
-        CropAndOpenFace.duration(vid)
-        # CropAndOpenFace.VideoImageCropper(
-        #     vid=vid,
-        #     im_dir=im_dir,
-        #     crop_txt_files=crop_txt_files,
-        #     nose_txt_files=nose_txt_files)
-        CropAndOpenFace.crop_and_resize(vid, im_dir)
-    except CropAndOpenFace.DurationException as e:
+        crop_and_openface.duration(vid)
+        crop_and_openface.crop_and_resize(vid, im_dir)
+    except crop_and_openface.DurationException as e:
         print(str(e) + '\t' + vid)
 
 
@@ -120,13 +97,11 @@ if __name__ == '__main__':
     chunk_size = 20
     for i in range(0, len(vids), chunk_size):
         chunks.append(vids[i:i + chunk_size])
-    # pool = Pool(8)
-    # pool.map(crop_and_openface,vids)
 
     for chunk in tqdm(chunks):  # we don't have enough memory. hence do the following in chunks
         with Pool(8) as p:
             test = list(tqdm(p.imap(crop, chunk), total=len(chunk)))  # create the frames for openface via multiproc
         im_dirs = [os.path.join(output_path, os.path.splitext(vid)[0].split('/')[-1] + '_cropped') for vid in chunk]
-        CropAndOpenFace.run_open_face(im_dirs)  # run openface on it
+        crop_and_openface.run_open_face(im_dirs)  # run openface on it
 
     sys.exit(0)
