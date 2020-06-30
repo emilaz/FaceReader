@@ -4,16 +4,14 @@
 
 """
 
-import json
 import os
 from tqdm import tqdm
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import pandas as pd
+# import runners.CropAndOpenFace as CropAndOpenFace
 import CropAndOpenFace
-from VidCropper import DurationException, duration
 from multiprocessing import Pool
-from datetime import datetime
 
 def make_vids(input_path, output_path, emotions = False):
     """
@@ -65,7 +63,7 @@ def make_vids(input_path, output_path, emotions = False):
         curr_time = times[times['filename']==os.path.basename(p)]
         if len(curr_time) == 0:  # quickfix for bug on vid start time file creation
             continue
-        if  23  > curr_time['hour'].iloc[0] > 6:  # add everything that is between 7-23
+        if  23  > curr_time['hour'].iloc[0] > 5:  # add everything that is between 7-23
             to_process_time_filtered.append(p)
         elif 23 == curr_time['hour'].iloc[0] and curr_time['minute'].iloc[0] <= 5:  # edge cases
             to_process_time_filtered.append(p)
@@ -74,35 +72,38 @@ def make_vids(input_path, output_path, emotions = False):
 
     return to_process_time_filtered
 
-# These are just a collection of patient_day_vid key and ACTUAL crop file path as value, so a lookup dictionary
-def make_crop_and_nose_files(path):
-    crop_file = os.path.join(path, 'crop_files_list.txt')
-    nose_file = os.path.join(path, 'nose_files_list.txt')
-
-    if not os.path.exists(crop_file):
-        crop_path = sys.argv[sys.argv.index('-c') + 1]
-        crop_txt_files = CropAndOpenFace.find_txt_files(crop_path)
-        json.dump(crop_txt_files, open(crop_file, mode='w'))
-
-    if not os.path.exists(nose_file):
-        nose_path = sys.argv[sys.argv.index('-n') + 1]
-        nose_txt_files = CropAndOpenFace.find_txt_files(nose_path)
-        json.dump(nose_txt_files, open(nose_file, mode='w'))
-
-    return json.load(open(crop_file)), json.load(open(nose_file))
+# # These are just a collection of patient_day_vid key and ACTUAL crop file path as value, so a lookup dictionary
+# def make_crop_and_nose_files(path):
+#     crop_file = os.path.join(path, 'crop_files_list.txt')
+#     nose_file = os.path.join(path, 'nose_files_list.txt')
+#
+#     if not os.path.exists(crop_file):
+#         crop_path = sys.argv[sys.argv.index('-c') + 1]
+#         crop_txt_files = CropAndOpenFace.find_txt_files(crop_path)
+#         json.dump(crop_txt_files, open(crop_file, mode='w'))
+#
+#     if not os.path.exists(nose_file):
+#         nose_path = sys.argv[sys.argv.index('-n') + 1]
+#         nose_txt_files = CropAndOpenFace.find_txt_files(nose_path)
+#         json.dump(nose_txt_files, open(nose_file, mode='w'))
+#
+#     return json.load(open(crop_file)), json.load(open(nose_file))
 
 
 def crop(vid):
     im_dir = os.path.join(output_path,os.path.splitext(vid)[0].split('/')[-1] + '_cropped')
+    if not os.path.exists(im_dir):
+        os.mkdir(im_dir)
     # for idx, vid in tqdm(enumerate(vids)):  # this sequentially bc ffmpeg is an absolute pain in the ass wrt I/O load
     try:
-        duration(vid)
-        CropAndOpenFace.VideoImageCropper(
-            vid=vid,
-            im_dir=im_dir,
-            crop_txt_files=crop_txt_files,
-            nose_txt_files=nose_txt_files)
-    except DurationException as e:
+        CropAndOpenFace.duration(vid)
+        # CropAndOpenFace.VideoImageCropper(
+        #     vid=vid,
+        #     im_dir=im_dir,
+        #     crop_txt_files=crop_txt_files,
+        #     nose_txt_files=nose_txt_files)
+        CropAndOpenFace.crop_and_resize(vid, im_dir)
+    except CropAndOpenFace.DurationException as e:
         print(str(e) + '\t' + vid)
 
 
@@ -112,7 +113,7 @@ if __name__ == '__main__':
     output_path = sys.argv[sys.argv.index('-od') + 1]
 
     vids = make_vids(input_path,output_path)
-    crop_txt_files, nose_txt_files = make_crop_and_nose_files(output_path)
+    # crop_txt_files, nose_txt_files = make_crop_and_nose_files(output_path)
     os.chdir(output_path)
     # into chunks
     chunks = []
