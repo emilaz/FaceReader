@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" promptOnRemoteOverwrite="CHECK_TIMESTAMP" serverName="emil@salarian.biology.washington.edu:22 password" overwriteAll="false" autoUploadExternalChanges="true" notifyRemoteChanges="true" compareModeInSync="TIMESTAMP">
+    <serverData>
+      <paths name="cylon">
+        <serverdata>
+          <mappings>
+            <mapping deploy="OpenFaceScripts" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="emil@salarian.biology.washington.edu:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="OpenFaceScripts" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="mycroft">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/OpenFaceScripts" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="salarian">
+        <serverdata>
+          <mappings>
+            <mapping deploy="OpenFaceScripts" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="tricycle">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>

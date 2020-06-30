@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="68c9d816-ca95-4bba-83ce-4244fab2822f" name="salarian">
+        <fileTransfer rootFolder="/home/emil" accessType="SFTP" host="salarian.biology.washington.edu" port="22" sshConfigId="322372d0-d894-41e4-99cf-84ced33b11e7" sshConfig="emil@salarian.biology.washington.edu:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
