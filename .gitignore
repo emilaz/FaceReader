@@ -2,3 +2,4 @@
 /tests/
 /crop_runners/.mypy_cache/
 /docs
+/.idea
