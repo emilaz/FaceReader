@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
 
     # do this day by day :)
-    for day in times['merge_day'].unique()[5:]:
+    for day in times['merge_day'].unique():
         print('Day {}...'.format(day))
         day_times = times[times['merge_day'] == day]  # these are just the times&filenames of curr day
         # get corresponding patient dirs
