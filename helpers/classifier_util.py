@@ -50,7 +50,7 @@ def make_classifier(feats, labels, groups, classifier_type, n_iter = 15):
 
     else:
         raise ValueError('Classifier Type not supported. Please choose rf, svc or lr.')
-    rcv = RandomizedSearchCV(classifier, param_grid, n_iter=n_iter, scoring=scoring, n_jobs=8,
+    rcv = RandomizedSearchCV(classifier, param_grid, n_iter=n_iter, scoring=scoring, n_jobs=7,
                              cv=groupkfold, iid=False, verbose=2)
     with parallel_backend('threading', n_jobs=8):
         rcv.fit(feats, labels, groups=groups)
