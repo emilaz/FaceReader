@@ -81,7 +81,7 @@ def find_scores(patient_dir: str, refresh=True):
             print(num_frames)
             print(len(au_frame))
             exit()
-        #find annotations, if exist. Else just leave the nans
+        # find annotations, if exist. Else just leave the nans
         if os.path.exists(csv_path):
             csv_dict = csv_emotion_reader(csv_path)
 
