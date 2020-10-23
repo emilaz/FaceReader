@@ -3,7 +3,7 @@ import os
 import sys
 import numpy as np
 import matplotlib
-from OpenFaceScripts.runners.VidCropper import duration
+from FaceReader.runners.VidCropper import duration
 from sklearn.externals import joblib
 
 matplotlib.use("Agg")

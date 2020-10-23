@@ -116,13 +116,14 @@ if __name__ == '__main__':
 
 
     # do this day by day :)
-    for day in times['merge_day'].unique():
+    print('Days we have:', times['merge_day'].unique())
+    for day in times['merge_day'].unique()[7:]:
         print('Day {}...'.format(day))
         day_times = times[times['merge_day'] == day]  # these are just the times&filenames of curr day
         # get corresponding patient dirs
         vids = [os.path.splitext(f)[0] for f in day_times['filename']]  # pat_sess_vid of curr day
         patient_dirs = [
-            x for v in vids for x in glob.glob('/data1/users/emil/openface_output/' + v + '*') if
+            x for v in vids for x in glob.glob(dir+ '/' + v + '*') if
             'hdfs' in os.listdir(x)
             and pat in x and 'Happy_predictions.hdf' in os.listdir(
                 os.path.join(x, 'hdfs'))

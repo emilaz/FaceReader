@@ -33,29 +33,17 @@ def add_classification(
     print(client)
 
     with parallel_backend("dask"):
-        PATIENT_DIRS = [
-            x
-            for x in glob.glob(os.path.join(dataframe_path, "*cropped"))
-            if "hdfs" in os.listdir(x)
-               and 'Happy_predictions.hdf' not in os.listdir(os.path.join(x,'hdfs'))
-        ]
-
+        PATIENT_DIRS = [x for x in glob.glob(os.path.join(dataframe_path, "*cropped"))
+            if "hdfs" in os.listdir(x) and 'Happy_predictions.hdf' not in os.listdir(os.path.join(x,'hdfs'))]
         for patient_dir in tqdm(PATIENT_DIRS):
             try:
-                curr_df = dd.read_hdf(
-                    os.path.join(patient_dir, "hdfs", "au_w_anno.hdf"), "/data"
-                )
-
-                if (
-                    len(curr_df)
-                    and "annotated" in curr_df.columns
-                    and "frame" in curr_df.columns
-                ):
+                curr_df = dd.read_hdf(os.path.join(patient_dir, "hdfs", "au_w_anno.hdf"), "/data")
+                if (len(curr_df) and "annotated" in curr_df.columns and "frame" in curr_df.columns):
                     inference_columns = [x for x in curr_df.columns if
                                     x not in ['predicted', 'frame', 'face_id', 'success', 'timestamp', 'confidence',
                                               'patient', 'video', 'annotated', 'session']]
                     inference_df = curr_df[inference_columns].compute()
-                    happy = get_prediction(classifier_path,inference_df,0.4862) #found during training
+                    happy = get_prediction(classifier_path,inference_df,0.4862, 'svc') #found during training
                     imp_columns=['patient','session','video','frame','success','confidence','annotated']
                     emotion_df = curr_df[imp_columns].compute()
                     emotion_df['Happy'] = happy

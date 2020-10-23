@@ -14,9 +14,9 @@ import sys
 sys.path.append(
     os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from OpenFaceScripts.runners.VidCropper import duration
-from OpenFaceScripts.scoring import AUScorer
-from OpenFaceScripts.helpers.SecondRunHelper import height_width, get_vid_from_dir
+from FaceReader.runners.VidCropper import duration
+from FaceReader.scoring import AUScorer
+from FaceReader.helpers.SecondRunHelper import height_width, get_vid_from_dir
 
 import numpy as np
 import matplotlib

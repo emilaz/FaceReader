@@ -31,11 +31,11 @@ def make_classifier(feats, labels, groups, classifier_type, n_iter = 15):
         classifier = RandomForestClassifier(class_weight='balanced')
     elif classifier_type == 'svc':
         param_grid = {
-            'feature_map__gamma': np.logspace(-5, -1, 4),
-            'feature_map__n_components': np.arange(start=400, stop=1500),
+            'feature_map__gamma': np.logspace(-5, -1, 5),
+            'feature_map__n_components': np.arange(start=400, stop=1300),
             'svm__C': np.logspace(-1, 5, 7),
             'feature_map__degree': np.arange(2,6),
-            'feature_map__kernel': ['poly']
+            'feature_map__kernel': ['poly', 'rbf']
         }
         classifier = pipeline.Pipeline([('scaler', StandardScaler()), ('feature_map', Nystroem(random_state=1)),
                                   ('svm', svm.LinearSVC(class_weight='balanced'))], verbose=True)
@@ -102,7 +102,7 @@ def conf_mat(pred, true, title):
     plt.figure(figsize=(10, 7))
     sns.heatmap(df_cm, annot=True, fmt='g', annot_kws={"size": 26})
     plt.title(title)
-    plt.savefig(os.path.join('/home/emil/OpenFaceScripts/images', title))
+    plt.savefig(os.path.join('/home/emil/FaceReader/images', title))
     plt.show()
 
 
@@ -119,6 +119,6 @@ def score_heatmap(pred, true, title):
     sns.heatmap((df.T).round(2),annot=True,cmap='Reds', fmt='g', vmin = 0,vmax=1, annot_kws={"size": 22})
     plt.yticks(rotation=0, fontsize="10", va="center")
     plt.title(title)
-    plt.savefig(os.path.join('/home/emil/OpenFaceScripts/images', title))
+    plt.savefig(os.path.join('/home/emil/FaceReader/images', title))
     plt.show()
     plt.close()

@@ -10,12 +10,12 @@ import gc
 import glob
 import pickle
 import dask.dataframe as dd
+from dask.distributed import Client
 
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import classification_report
 from multiprocessing import Pool
 
-from dask.distributed import Client
 import sys
 sys.path.append('..')
 from helpers.classifier_util import *
@@ -26,7 +26,7 @@ def test_classifier(df, all):
     print('Testing classifier...')
     data, labels, groups = make_emotion_data(df, all)
     classifier_path = pickle.load(open('/home/emil/facereader_classifier_test/Happy_trained_RandomForest_with_pose_emil.pkl', "rb"))
-    # classifier_path = pickle.load(open('/home/emil/OpenFaceScripts/models/Happy_trained_RandomForest_with_pose_emil_good.pkl', "rb"))
+    # classifier_path = pickle.load(open('/home/emil/FaceReader/models/Happy_trained_RandomForest_with_pose_emil_good.pkl', "rb"))
     happy = get_prediction(classifier_path, data, .5)#, 0.4862)  # found during training
     #save results
     conf_mat(happy,labels,'salarian_test_conf')
@@ -38,7 +38,7 @@ def train_classifier(df: dd.DataFrame, path_to_save, classifier_type='rf'):
     data, labels, groups = make_emotion_data(df, True)
     del df
     # split off some sessions
-    gss = GroupShuffleSplit(n_splits=2, test_size=.2, random_state=4)
+    gss = GroupShuffleSplit(n_splits=2, test_size=.2, random_state=1495)
     tr_idx, te_idx = [(tr_te_pair) for tr_te_pair in gss.split(data, groups=groups)][0]
     X_train = data.loc[tr_idx]
     X_test = data.loc[te_idx]
@@ -47,7 +47,7 @@ def train_classifier(df: dd.DataFrame, path_to_save, classifier_type='rf'):
     group_train = groups.loc[tr_idx]
     del data
     print("TRAINING")
-    rcv = make_classifier(X_train, y_train, group_train, classifier_type=classifier_type, n_iter=25)
+    rcv = make_classifier(X_train, y_train, group_train, classifier_type=classifier_type, n_iter=70)
     classifier = rcv.best_estimator_
     print('BEST CLASSIFIER:')
     print(classifier)
@@ -89,33 +89,30 @@ def train_classifier(df: dd.DataFrame, path_to_save, classifier_type='rf'):
     total_df.to_csv(os.path.join(path_to_save,'{}_trained_metrics.csv'.format(classifier_type)))
 
 
-def preprocess(df):
-    print('Preprocessing...throwing away bad labels')
-    data_columns = [x for x in df.columns if
-                    x not in ['frame', 'face_id', 'success', 'timestamp', 'confidence', 'patient', 'session']]
-    df = df[data_columns]
-    data = df[df['annotated'] != "N/A"]
-    data = data[data['annotated'] != ""]
-    return data
 
 def make_emotion_data(df, all=False):
     print('Making emotion data...')
-    data = preprocess(df)
+    # first, create new [patient,video] column for grouping later
+    df['group'] = list(zip(df['patient'], df['video']))
+    data_columns = [x for x in df.columns if
+                    x not in ['frame', 'face_id', 'success', 'timestamp', 'confidence', 'patient', 'session', 'video']]
+    df = df[data_columns]
+    data = df[df['annotated'] != "N/A"]
+    data = data[data['annotated'] != ""]
     if not all:
         emote_data = data[data['annotated'] == 'Happy']
         non_emote_data = data[data['annotated'] != 'Happy']
         non_emote_data = non_emote_data.sample(frac=len(emote_data) / len(non_emote_data), random_state=0)
         data = dd.concat([emote_data, non_emote_data], interleave_partitions=True)
     else:
-        frac = .9
+        frac = .8
         emote_data = data[data['annotated'] == 'Happy'].sample(frac=frac, random_state=0)
         non_emote_data = data[data['annotated'] != 'Happy'].sample(frac=frac, random_state=0)
         data = dd.concat([emote_data, non_emote_data], interleave_partitions=True)
         print('WARNING. THROWING AWAY {} PERCENT CURRENTLY. DO WE WANT THAT?'.format(100*(1-frac)))
     labels = (data['annotated'] == 'Happy')
-    groups = data['video']  # this is for grouping of train-test set later on
-    print('HELLO DATA ANNOTATED HERE')
-    del data['video']
+    groups = data['group']  # this is for grouping of train-test set later on
+    del data['group']
     del data['annotated']
     data = data.compute().reset_index(drop=True)
     labels = labels.compute().reset_index(drop=True)
@@ -151,7 +148,7 @@ if __name__ == '__main__':
     parser.add_argument("-id", help="Path to OpenFaceTests directory")
     parser.add_argument("-refresh", help="Refresh DataFrame", action="store_true")
     parser.add_argument("-drop", help="Patient to leave out for training/testing")
-    parser.add_argument('-classifier_type', help='Kind of classifier to train. Use rf, svc and rl.', default='rf')
+    parser.add_argument('-classifier_type', help='Kind of classifier to train. Use rf, svc and rl.', default='svc')
     parser.add_argument("-test", help="If a classifier is just to be tested on data", action="store_true")
     args = parser.parse_args()
     if args.drop:
@@ -190,40 +187,36 @@ if __name__ == '__main__':
 
         good_pat_dirs = [f for f in PATIENT_DIRS if f in good_files]
         pool = Pool(8)
+        print('Loading data into memory...')
         res = pool.map(load_patient, good_pat_dirs)
         print('filter nans')
         new_res = [r for r in res if r is not None]
         print('Good files:{}, bad files: {}'.format(len(new_res), len(res)-len(new_res)))
         print('now concat')
-
-        df = dd.concat(new_res, interleave_partitions=True)
+        # df = dd.concat(new_res).repartition(partition_size='100MB')
+        df = dd.concat(new_res, interleave_partitions=True).repartition(npartitions=3800)
+        print(df.npartitions)
+        print(df.shape)
+        print('hmm')
         gc.collect()
-
         df.to_hdf(au_path, '/data', format='table', scheduler='processes')  # need scheduler to avoid segfault
         print('DUMPED')
-        client = Client(processes=False, silence_logs='error')
+        client = Client()
         print(client)
     else:
-        client = Client(n_workers=4, threads_per_worker=2)  # , silence_logs='error')
+        client = Client()
+        print(client)
+        # all_dfs = []
+        # for d in glob.glob(au_path):
+        #     try:
+        #         curr_df= dd.read_hdf(au_path, '/data')
+        #         all_dfs.append(curr_df)
+        #     except:
+        #         continue
+        # dd.concat(all_dfs, interleave_partitions=True)
         df = dd.read_hdf(au_path, '/data')
-        # dfs = []
-        # for idx,f in enumerate(glob.glob(os.path.dirname(au_path)+ '/*')):
-        #     if f.endswith('.hdf'):
-        #         df = pd.read_hdf(f, key='/data')
-        #         data_columns = [x for x in df.columns if
-        #                         x not in ['frame', 'face_id', 'success', 'timestamp', 'confidence', 'patient', 'video']]
-        #         df = df[data_columns]
-        #
-        #         data = df[df['annotated'] != "N/A"]
-        #         data = data[data['annotated'] != ""]
-        #         if len(df)>0:
-        #             dfs.append(df)
-        #         if idx >80:
-        #             break
-        # df = pd.concat(dfs)
-        # del dfs
+
         print('Files read')
-    print(client)
     if args.test:
         test_classifier(df, all=False)
     else:
